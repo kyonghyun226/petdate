@@ -135,10 +135,12 @@ permission before registering.
 | --- | --- | --- | --- | --- |
 | `onMessageCreated` | `threads/{matchId}/messages/{messageId}` create | match `userIds` except `senderId` | title `반짝산책` / body `새 메시지가 도착했어요` | `matchId`, `type: message` |
 | `onMatchCreated` | `matches/{matchId}` create | both `userIds` (once each) | title `반짝산책` / body `산책 메이트와 연결됐어요` | `matchId`, `type: match` |
+| `onMeetProposalCreated` | `meetProposals/{proposalId}` create | other match member (not `fromUid`) | title `반짝산책` / body `산책 약속 제안이 도착했어요` | `matchId`, `proposalId`, `type: meet_proposal` |
+| `onMeetProposalUpdated` | `meetProposals/{proposalId}` update | `fromUid` when status becomes `accepted` or `counter` | 수락: `산책 약속이 수락됐어요` / 변경: `산책 약속 제안이 변경됐어요` | `matchId`, `proposalId`, `type: meet_proposal`, `status` |
 
 Copy is walk-mate tone (not dating). Message text is **not** included.
 Stale tokens (`unregistered` / `invalid-registration-token`) are deleted.
-`meetProposals` fan-out is stubbed for a later PR.
+`dismissed` updates do not send a push.
 
 ### Console checklist (cannot be done from this repo)
 

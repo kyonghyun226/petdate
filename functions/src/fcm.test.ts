@@ -6,6 +6,8 @@ import {
   loadRecipientTokens,
   otherParticipantUids,
   sendPushToUids,
+  shouldNotifyMeetProposalUpdate,
+  toFcmData,
 } from "./fcm";
 import type {Firestore} from "firebase-admin/firestore";
 
@@ -82,6 +84,38 @@ describe("isStaleTokenError", () => {
     );
     assert.equal(isStaleTokenError({code: "messaging/internal-error"}), false);
     assert.equal(isStaleTokenError(undefined), false);
+  });
+});
+
+describe("toFcmData", () => {
+  it("includes optional proposal fields as strings", () => {
+    assert.deepEqual(
+      toFcmData({
+        matchId: `${ALICE}_${BOB}`,
+        type: "meet_proposal",
+        proposalId: "p1",
+        status: "accepted",
+      }),
+      {
+        matchId: `${ALICE}_${BOB}`,
+        type: "meet_proposal",
+        proposalId: "p1",
+        status: "accepted",
+      },
+    );
+    assert.deepEqual(
+      toFcmData({matchId: "m", type: "message"}),
+      {matchId: "m", type: "message"},
+    );
+  });
+});
+
+describe("shouldNotifyMeetProposalUpdate", () => {
+  it("notifies only accepted and counter transitions", () => {
+    assert.equal(shouldNotifyMeetProposalUpdate("pending", "accepted"), true);
+    assert.equal(shouldNotifyMeetProposalUpdate("pending", "counter"), true);
+    assert.equal(shouldNotifyMeetProposalUpdate("pending", "dismissed"), false);
+    assert.equal(shouldNotifyMeetProposalUpdate("accepted", "accepted"), false);
   });
 });
 

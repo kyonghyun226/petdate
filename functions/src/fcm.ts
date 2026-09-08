@@ -10,7 +10,14 @@ export const STALE_TOKEN_CODES = new Set([
   "messaging/invalid-registration-token",
 ]);
 
-export type PushDataType = "message" | "match";
+export type PushDataType = "message" | "match" | "meet_proposal";
+
+export type PushData = {
+  matchId: string;
+  type: PushDataType;
+  proposalId?: string;
+  status?: string;
+};
 
 export const PUSH_COPY = {
   message: {
@@ -21,7 +28,43 @@ export const PUSH_COPY = {
     title: "반짝산책",
     body: "산책 메이트와 연결됐어요",
   },
+  meetProposal: {
+    title: "반짝산책",
+    body: "산책 약속 제안이 도착했어요",
+  },
+  meetAccepted: {
+    title: "반짝산책",
+    body: "산책 약속이 수락됐어요",
+  },
+  meetCounter: {
+    title: "반짝산책",
+    body: "산책 약속 제안이 변경됐어요",
+  },
 } as const;
+
+export function shouldNotifyMeetProposalUpdate(
+  beforeStatus: unknown,
+  afterStatus: unknown,
+): afterStatus is "accepted" | "counter" {
+  return (
+    beforeStatus !== afterStatus &&
+    (afterStatus === "accepted" || afterStatus === "counter")
+  );
+}
+
+export function toFcmData(data: PushData): Record<string, string> {
+  const payload: Record<string, string> = {
+    matchId: data.matchId,
+    type: data.type,
+  };
+  if (data.proposalId) {
+    payload.proposalId = data.proposalId;
+  }
+  if (data.status) {
+    payload.status = data.status;
+  }
+  return payload;
+}
 
 /**
  * Unique match participants, optionally excluding the actor (sender /
@@ -127,7 +170,7 @@ export async function sendPushToUids(
   messaging: Pick<Messaging, "sendEachForMulticast">,
   uids: readonly string[],
   notification: {title: string; body: string},
-  data: {matchId: string; type: PushDataType},
+  data: PushData,
 ): Promise<SendPushResult> {
   const tokens = await loadRecipientTokens(db, uids);
   if (tokens.length === 0) {
@@ -146,10 +189,7 @@ export async function sendPushToUids(
     const response = await messaging.sendEachForMulticast({
       tokens: batch.map((item) => item.token),
       notification,
-      data: {
-        matchId: data.matchId,
-        type: data.type,
-      },
+      data: toFcmData(data),
     });
     response.responses.forEach((item, index) => {
       if (item.success) {

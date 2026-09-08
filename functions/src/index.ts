@@ -23,3 +23,7 @@ export const markUserVerified = onCall(async (request) => {
 
 export {onMessageCreated} from "./onMessageCreated";
 export {onMatchCreated} from "./onMatchCreated";
+export {
+  onMeetProposalCreated,
+  onMeetProposalUpdated,
+} from "./onMeetProposal";

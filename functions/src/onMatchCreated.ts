@@ -2,15 +2,7 @@ import {onDocumentCreated} from "firebase-functions/firestore";
 import {db, messaging} from "./firebase";
 import {otherParticipantUids, PUSH_COPY, sendPushToUids} from "./fcm";
 
-/**
- * Notify each match participant once when matches/{matchId} is created.
- *
- * P1 later — meetProposals/{proposalId} onCreate:
- *   load matches/{matchId}.userIds, exclude fromUid, fan-out with
- *   data { matchId, type: "meet_proposal" }.
- *   Safe copy example: title "반짝산책" /
- *   body "산책 약속 제안이 도착했어요".
- */
+/** Notify each match participant once when matches/{matchId} is created. */
 export const onMatchCreated = onDocumentCreated(
   "matches/{matchId}",
   async (event) => {
