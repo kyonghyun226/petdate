@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:petdate/copy/app_copy.dart';
+import 'package:petdate/theme/brand_assets.dart';
 import 'package:petdate/theme/tokens.dart';
+import 'package:petdate/widgets/brand_wordmark.dart';
+import 'package:petdate/widgets/buttons.dart';
 
 class StepIndicator extends StatelessWidget {
   const StepIndicator({
@@ -84,35 +88,28 @@ class BrandMark extends StatelessWidget {
     super.key,
     this.showWordmark = true,
     this.iconSize = 64,
+    this.wordmarkHeight = 36,
   });
 
   final bool showWordmark;
   final double iconSize;
+  final double wordmarkHeight;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(
+        Image.asset(
+          BrandAssets.appIcon,
           width: iconSize,
           height: iconSize,
-          decoration: BoxDecoration(
-            color: AppColors.primarySoft,
-            borderRadius: BorderRadius.circular(iconSize * 0.28),
-          ),
-          child: Icon(
-            Icons.auto_awesome,
-            color: AppColors.primary,
-            size: iconSize * 0.48,
-          ),
+          filterQuality: FilterQuality.high,
+          semanticLabel: AppCopy.appName,
         ),
         if (showWordmark) ...[
           const SizedBox(height: AppSpacing.md),
-          Text(
-            '반짝산책',
-            style: AppTypography.title.copyWith(fontSize: 22),
-          ),
+          BrandWordmark(height: wordmarkHeight),
         ],
       ],
     );
@@ -125,11 +122,15 @@ class EmptyState extends StatelessWidget {
     required this.message,
     this.icon = Icons.auto_awesome_outlined,
     this.hint,
+    this.actionLabel,
+    this.onAction,
   });
 
   final String message;
   final IconData icon;
   final String? hint;
+  final String? actionLabel;
+  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
@@ -159,6 +160,16 @@ class EmptyState extends StatelessWidget {
               hint!,
               textAlign: TextAlign.center,
               style: AppTypography.caption,
+            ),
+          ],
+          if (actionLabel != null && onAction != null) ...[
+            const SizedBox(height: AppSpacing.xl),
+            SizedBox(
+              width: 200,
+              child: PrimaryButton(
+                label: actionLabel!,
+                onPressed: onAction,
+              ),
             ),
           ],
         ],

@@ -7,11 +7,13 @@ class PrimaryButton extends StatelessWidget {
     required this.label,
     this.onPressed,
     this.expand = true,
+    this.dimmed = false,
   });
 
   final String label;
   final VoidCallback? onPressed;
   final bool expand;
+  final bool dimmed;
 
   @override
   Widget build(BuildContext context) {
@@ -21,8 +23,12 @@ class PrimaryButton extends StatelessWidget {
       child: FilledButton(
         onPressed: onPressed,
         style: FilledButton.styleFrom(
-          backgroundColor: AppColors.primary,
-          foregroundColor: AppColors.onPrimary,
+          backgroundColor: dimmed
+              ? AppColors.primary.withValues(alpha: 0.35)
+              : AppColors.primary,
+          foregroundColor: dimmed
+              ? AppColors.onPrimary.withValues(alpha: 0.8)
+              : AppColors.onPrimary,
           disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.35),
           disabledForegroundColor: AppColors.onPrimary.withValues(alpha: 0.8),
           elevation: 0,

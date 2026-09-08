@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Design tokens for 반짝산책 UIUX spec v0.4 (light only).
+/// Design tokens for 반짝산책 UIUX spec v0.4–v0.6 (light only).
 abstract final class AppColors {
   static const Color bg = Color(0xFFFFFFFF);
   static const Color surface = Color(0xFFFFFFFF);
@@ -13,6 +13,8 @@ abstract final class AppColors {
   static const Color border = Color(0xFFEFEFEF);
   static const Color danger = Color(0xFFE5484D);
   static const Color tabInactive = Color(0xFFB0B0B0);
+  static const Color safetyBg = Color(0xFFE8F7F3);
+  static const Color safetyText = Color(0xFF2F6F62);
   static const Color overlay = Color(0x66000000);
   static const Color onPrimary = Color(0xFFFFFFFF);
 }
@@ -38,6 +40,12 @@ abstract final class AppSizes {
   static const double buttonHeight = 52;
   static const double tabBarHeight = 64;
   static const double socialIcon = 24;
+  static const double passFab = 56;
+  static const double likeFab = 64;
+  static const double fabGap = 24;
+  static const double cardInset = 32;
+  static const double cardPhotoShare = 0.62;
+  static const double cardPhotoAspect = 4 / 5;
 }
 
 abstract final class AppTypography {

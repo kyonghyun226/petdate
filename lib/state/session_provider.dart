@@ -15,6 +15,7 @@ class AppSession {
     this.profileCompleted = false,
     this.goal,
     this.mainTab = MainTab.home,
+    this.uid,
   });
 
   final AppPhase phase;
@@ -24,6 +25,9 @@ class AppSession {
   final UserGoal? goal;
   final MainTab mainTab;
 
+  /// Mock `users/{uid}` document id. Real Auth uid lands here after Google/Apple.
+  final String? uid;
+
   bool get showBottomNav => phase == AppPhase.main && isLoggedIn;
 
   AppSession copyWith({
@@ -32,15 +36,19 @@ class AppSession {
     bool? onboardingCompleted,
     bool? profileCompleted,
     UserGoal? goal,
+    bool clearGoal = false,
     MainTab? mainTab,
+    String? uid,
+    bool clearUid = false,
   }) {
     return AppSession(
       phase: phase ?? this.phase,
       isLoggedIn: isLoggedIn ?? this.isLoggedIn,
       onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
       profileCompleted: profileCompleted ?? this.profileCompleted,
-      goal: goal ?? this.goal,
+      goal: clearGoal ? null : (goal ?? this.goal),
       mainTab: mainTab ?? this.mainTab,
+      uid: clearUid ? null : (uid ?? this.uid),
     );
   }
 }
@@ -68,10 +76,12 @@ class SessionNotifier extends Notifier<AppSession> {
   }
 
   /// Mock social login. Real Google/Apple auth is out of scope.
+  /// Likes stay locked until [UserDoc] listen sees `verifiedAt`.
   void mockLogin() {
     state = state.copyWith(
       isLoggedIn: true,
       phase: AppPhase.goal,
+      uid: 'mock_uid',
     );
   }
 
@@ -99,8 +109,21 @@ class SessionNotifier extends Notifier<AppSession> {
   void selectTab(MainTab tab) {
     state = state.copyWith(mainTab: tab);
   }
+
+  void logout() {
+    state = const AppSession(
+      phase: AppPhase.login,
+      onboardingCompleted: true,
+    );
+  }
 }
 
 final sessionProvider = NotifierProvider<SessionNotifier, AppSession>(
   SessionNotifier.new,
 );
+
+/// Bumps mock stores when the user logs out.
+final sessionLoggedInTickProvider = Provider<int>((ref) {
+  final loggedIn = ref.watch(sessionProvider.select((s) => s.isLoggedIn));
+  return loggedIn ? 1 : 0;
+});
