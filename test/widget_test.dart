@@ -12,6 +12,14 @@ void main() {
     await tester.pumpWidget(const ProviderScope(child: PetdateApp()));
 
     expect(find.text(AppCopy.appName), findsWidgets);
+    expect(
+      find.byWidgetPredicate(
+        (w) => w is Image &&
+            w.image is AssetImage &&
+            (w.image as AssetImage).assetName == 'assets/branding/app_icon.png',
+      ),
+      findsOneWidget,
+    );
 
     await tester.pump(const Duration(milliseconds: 1600));
     await tester.pumpAndSettle();
