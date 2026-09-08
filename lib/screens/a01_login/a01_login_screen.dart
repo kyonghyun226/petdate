@@ -23,7 +23,7 @@ class A01LoginScreen extends ConsumerWidget {
           child: Column(
             children: [
               const Spacer(),
-              const BrandMark(iconSize: 80),
+              const BrandMark(iconSize: 88, wordmarkHeight: 40),
               const SizedBox(height: AppSpacing.xxl),
               Text(
                 AppCopy.loginTitle,

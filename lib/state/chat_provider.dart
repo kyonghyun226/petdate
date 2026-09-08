@@ -40,20 +40,50 @@ class ChatNotifier extends Notifier<ChatState> {
     final existing = state.byProfile(profile.id);
     if (existing != null) return existing;
 
+    final messages = <ChatMessage>[
+      ChatMessage(
+        id: _nextId(),
+        text: AppCopy.chatSystemMatch,
+        isMine: false,
+        kind: ChatMessageKind.system,
+      ),
+      if (profile.likedMe)
+        ChatMessage(
+          id: _nextId(),
+          text: '만남 제안 · 공원 · 주말 아침',
+          isMine: false,
+          kind: ChatMessageKind.meetup,
+          receipt: MeetupReceipt.pending,
+        ),
+    ];
     final thread = ChatThread(
       id: 'chat_${profile.id}',
       profile: profile,
-      messages: [
-        ChatMessage(
-          id: _nextId(),
-          text: AppCopy.chatSystemMatch,
-          isMine: false,
-          kind: ChatMessageKind.system,
-        ),
-      ],
+      messages: messages,
     );
     state = ChatState(threads: [...state.threads, thread]);
     return thread;
+  }
+
+  void setMeetupReceipt(
+    String threadId,
+    String messageId,
+    MeetupReceipt receipt,
+  ) {
+    state = ChatState(
+      threads: [
+        for (final t in state.threads)
+          if (t.id == threadId)
+            t.copyWith(
+              messages: [
+                for (final m in t.messages)
+                  if (m.id == messageId) m.copyWith(receipt: receipt) else m,
+              ],
+            )
+          else
+            t,
+      ],
+    );
   }
 
   void sendText(String threadId, String text) {

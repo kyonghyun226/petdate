@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:petdate/copy/app_copy.dart';
+import 'package:petdate/copy/species_copy.dart';
 import 'package:petdate/flow/spark_actions.dart';
 import 'package:petdate/models/discovery_profile.dart';
 import 'package:petdate/models/pet_tag.dart';
 import 'package:petdate/screens/m01_match/m01_match_screen.dart';
 import 'package:petdate/screens/r01_report/r01_report_sheet.dart';
 import 'package:petdate/state/chat_provider.dart';
-import 'package:petdate/state/profile_provider.dart';
 import 'package:petdate/state/session_provider.dart';
 import 'package:petdate/theme/tokens.dart';
 import 'package:petdate/widgets/buttons.dart';
@@ -114,7 +114,7 @@ class _D01DetailScreenState extends ConsumerState<D01DetailScreen> {
                             ),
                             const SizedBox(height: AppSpacing.sm),
                             Text(
-                              '${profile.ageYears}살 · ${profile.breed} · ${_species()} · ${_distance(profile.distanceKm)}',
+                              '${profile.ageYears}살 · ${profile.breed} · ${SpeciesCopy.noun(profile.species)} · ${_distance(profile.distanceKm)}',
                               style: AppTypography.body.copyWith(
                                 color: AppColors.textMuted,
                               ),
@@ -185,10 +185,6 @@ class _D01DetailScreenState extends ConsumerState<D01DetailScreen> {
       ),
     );
   }
-
-  String _species() => profile.species == PetSpecies.dog
-      ? AppCopy.speciesDog
-      : AppCopy.speciesCat;
 
   String _distance(double km) {
     if (km < 1) return '${(km * 1000).round()}m';

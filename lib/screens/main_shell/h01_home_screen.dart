@@ -27,16 +27,66 @@ class H01HomeScreen extends ConsumerWidget {
         title: Text(GoalCopy.homeTitle(goal)),
         automaticallyImplyLeading: false,
       ),
-      body: current == null
-          ? EmptyState(
-              message: GoalCopy.homeEmpty(goal),
-              icon: goal == UserGoal.friend
-                  ? Icons.pets_outlined
-                  : Icons.directions_walk_outlined,
-              actionLabel: AppCopy.refresh,
-              onAction: ref.read(feedProvider.notifier).refresh,
-            )
-          : _FocusedCard(profile: current),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              AppSpacing.xs,
+              AppSpacing.lg,
+              AppSpacing.sm,
+            ),
+            child: _SpeciesFilterBar(
+              value: feed.speciesFilter,
+              onChanged: ref.read(feedProvider.notifier).setSpeciesFilter,
+            ),
+          ),
+          Expanded(
+            child: current == null
+                ? EmptyState(
+                    message: GoalCopy.homeEmpty(goal),
+                    icon: goal == UserGoal.friend
+                        ? Icons.pets_outlined
+                        : Icons.directions_walk_outlined,
+                    actionLabel: AppCopy.refresh,
+                    onAction: ref.read(feedProvider.notifier).refresh,
+                  )
+                : _FocusedCard(profile: current),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SpeciesFilterBar extends StatelessWidget {
+  const _SpeciesFilterBar({required this.value, required this.onChanged});
+
+  final SpeciesFilter value;
+  final ValueChanged<SpeciesFilter> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SelectableChip(
+          label: AppCopy.filterAll,
+          selected: value == SpeciesFilter.all,
+          onTap: () => onChanged(SpeciesFilter.all),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        SelectableChip(
+          label: AppCopy.speciesDog,
+          selected: value == SpeciesFilter.dog,
+          onTap: () => onChanged(SpeciesFilter.dog),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        SelectableChip(
+          label: AppCopy.speciesCat,
+          selected: value == SpeciesFilter.cat,
+          onTap: () => onChanged(SpeciesFilter.cat),
+        ),
+      ],
     );
   }
 }

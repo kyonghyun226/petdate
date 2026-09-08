@@ -6,6 +6,8 @@ import 'package:petdate/constants/app_constants.dart';
 import 'package:petdate/copy/app_copy.dart';
 import 'package:petdate/models/pet_tag.dart';
 import 'package:petdate/models/preferred_time.dart';
+import 'package:petdate/copy/species_copy.dart';
+import 'package:petdate/state/analytics_provider.dart';
 import 'package:petdate/state/profile_provider.dart';
 import 'package:petdate/state/session_provider.dart';
 import 'package:petdate/theme/tokens.dart';
@@ -72,6 +74,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('home-card-kong')));
     await tester.pumpAndSettle();
     expect(find.text(GoalCopy.detailCta(UserGoal.friend, '콩이')), findsOneWidget);
+    expect(find.textContaining(AppCopy.petNounDog), findsOneWidget);
     expect(find.text('꼬리부터 반짝하는 말티즈예요. 공원에서 친구 만드는 중!'), findsOneWidget);
 
     await tester.tap(find.byTooltip(AppCopy.reportMenu));
@@ -119,6 +122,10 @@ void main() {
     await tester.tap(find.text(AppCopy.send));
     await tester.pumpAndSettle();
     expect(find.textContaining('만남 제안'), findsWidgets);
+    expect(
+      container.read(analyticsProvider).events,
+      contains(MeetKpi.proposalSent),
+    );
   });
 
   testWidgets('C01 empty goes home; B01 matched opens chat', (tester) async {
@@ -200,6 +207,74 @@ void main() {
     await tester.tap(find.text(AppCopy.send));
     await tester.pumpAndSettle();
     expect(find.textContaining('만남 제안'), findsWidgets);
+    expect(
+      container.read(analyticsProvider).events,
+      contains(MeetKpi.proposalSent),
+    );
+  });
+
+  testWidgets('H01 species filter chips 전체|견|묘', (tester) async {
+    final container = _loggedIn();
+    addTearDown(container.dispose);
+    await _pumpMain(tester, container);
+
+    expect(find.text(AppCopy.filterAll), findsOneWidget);
+    expect(find.text(AppCopy.speciesDog), findsOneWidget);
+    expect(find.text(AppCopy.speciesCat), findsOneWidget);
+    expect(find.byKey(const ValueKey('home-card-kong')), findsOneWidget);
+
+    await tester.tap(find.text(AppCopy.speciesCat));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('home-card-bam')), findsOneWidget);
+    expect(find.byKey(const ValueKey('home-card-kong')), findsNothing);
+    expect(find.textContaining('밤이'), findsWidgets);
+
+    await tester.tap(find.text(AppCopy.speciesDog));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('home-card-kong')), findsOneWidget);
+    expect(find.byKey(const ValueKey('home-card-bam')), findsNothing);
+  });
+
+  testWidgets('inbound meetup CTAs track accept and counter KPIs', (tester) async {
+    final container = _loggedIn();
+    addTearDown(container.dispose);
+    await _pumpMain(tester, container);
+
+    await tester.tap(find.byKey(const ValueKey('like-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(AppCopy.startChat));
+    await tester.pumpAndSettle();
+
+    expect(find.text(AppCopy.meetupAccept), findsOneWidget);
+    expect(find.text(AppCopy.meetupCounter), findsOneWidget);
+    expect(find.text(AppCopy.meetupIgnore), findsOneWidget);
+
+    await tester.tap(find.text(AppCopy.meetupAccept));
+    await tester.pumpAndSettle();
+    expect(find.text(AppCopy.meetupAccepted), findsOneWidget);
+    expect(
+      container.read(analyticsProvider).events,
+      contains(MeetKpi.proposalAccepted),
+    );
+  });
+
+  testWidgets('inbound meetup counter opens C03 and tracks KPI', (tester) async {
+    final container = _loggedIn();
+    addTearDown(container.dispose);
+    await _pumpMain(tester, container);
+
+    await tester.tap(find.byKey(const ValueKey('like-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(AppCopy.startChat));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text(AppCopy.meetupCounter));
+    await tester.pumpAndSettle();
+    expect(find.text(AppCopy.meetupPlace), findsOneWidget);
+    expect(
+      container.read(analyticsProvider).events,
+      contains(MeetKpi.proposalCounter),
+    );
   });
 
   test('P03 tag keys match locked labels', () {
@@ -233,6 +308,12 @@ void main() {
     expect(AppRadius.card, 20);
     expect(GoalCopy.homeTitle(UserGoal.friend), '오늘의 반짝 친구');
     expect(GoalCopy.homeTitle(UserGoal.walk), '같이 산책할 짝');
+    expect(SpeciesCopy.noun(PetSpecies.dog), AppCopy.petNounDog);
+    expect(SpeciesCopy.noun(PetSpecies.cat), AppCopy.petNounCat);
+    expect(SpeciesCopy.noun(null), AppCopy.petNounFallback);
+    expect(MeetKpi.proposalSent, 'meet_proposal_sent');
+    expect(MeetKpi.proposalAccepted, 'meet_proposal_accepted');
+    expect(MeetKpi.proposalCounter, 'meet_proposal_counter');
   });
 
   test('P03 requires 3-8 tags and 1-3 time slots', () {

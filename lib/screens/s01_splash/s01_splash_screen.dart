@@ -36,7 +36,7 @@ class _S01SplashScreenState extends ConsumerState<S01SplashScreen> {
     return const Scaffold(
       backgroundColor: AppColors.bg,
       body: Center(
-        child: BrandMark(iconSize: 88),
+        child: BrandMark(iconSize: 96, wordmarkHeight: 42),
       ),
     );
   }

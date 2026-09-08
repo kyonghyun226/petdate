@@ -16,7 +16,18 @@ abstract final class AppCopy {
   /// Play / App Store listing placeholders (not shown in-app).
   static const storeSubtitle = '반려 친구 · 산책 메이트 찾기';
   static const storeTagline =
-      '우리 반려견의 짝을 찾아요. 친구 사귀기부터 같이 산책하기까지.';
+      '우리 반려의 짝을 찾아요. 친구 사귀기부터 같이 산책하기까지.';
+
+  static const filterAll = '전체';
+  static const meetupAccept = '수락';
+  static const meetupCounter = '다른 시간 제안';
+  static const meetupIgnore = '무시';
+  static const meetupAccepted = '수락했어요';
+  static const meetupCountered = '다른 시간을 제안했어요';
+  static const meetupIgnored = '무시했어요';
+  static const petNounFallback = '반려';
+  static const petNounDog = '강아지';
+  static const petNounCat = '고양이';
 
   static const onboardingStart = '시작하기';
   static const alreadyHaveAccount = '이미 계정 있어요';

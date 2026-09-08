@@ -3,10 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:petdate/copy/app_copy.dart';
 import 'package:petdate/models/chat.dart';
 import 'package:petdate/screens/c03_meetup/c03_meetup_sheet.dart';
+import 'package:petdate/state/analytics_provider.dart';
 import 'package:petdate/state/chat_provider.dart';
 import 'package:petdate/state/profile_provider.dart';
 import 'package:petdate/state/session_provider.dart';
 import 'package:petdate/theme/tokens.dart';
+import 'package:petdate/widgets/buttons.dart';
 import 'package:petdate/widgets/pet_photo.dart';
 import 'package:petdate/widgets/safety_banner.dart';
 
@@ -120,7 +122,10 @@ class _C02ChatRoomScreenState extends ConsumerState<C02ChatRoomScreen> {
                 AppSpacing.lg,
               ),
               itemCount: thread.messages.length,
-              itemBuilder: (context, i) => _Bubble(message: thread.messages[i]),
+              itemBuilder: (context, i) => _Bubble(
+                threadId: widget.threadId,
+                message: thread.messages[i],
+              ),
             ),
           ),
           if (showChips)
@@ -204,8 +209,9 @@ class _C02ChatRoomScreenState extends ConsumerState<C02ChatRoomScreen> {
 }
 
 class _Bubble extends StatelessWidget {
-  const _Bubble({required this.message});
+  const _Bubble({required this.threadId, required this.message});
 
+  final String threadId;
   final ChatMessage message;
 
   @override
@@ -224,20 +230,110 @@ class _Bubble extends StatelessWidget {
     final mine = message.isMine;
     return Align(
       alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: ConstrainedBox(
         constraints: BoxConstraints(
           maxWidth: MediaQuery.sizeOf(context).width * 0.78,
         ),
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.lg,
-          vertical: AppSpacing.md,
+        child: Column(
+          crossAxisAlignment:
+              mine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          children: [
+            Container(
+              margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.lg,
+                vertical: AppSpacing.md,
+              ),
+              decoration: BoxDecoration(
+                color: mine ? AppColors.primarySoft : AppColors.surfaceMuted,
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Text(
+                message.text,
+                style: AppTypography.body.copyWith(fontSize: 15),
+              ),
+            ),
+            if (message.kind == ChatMessageKind.meetup && !mine)
+              _InboundMeetupActions(threadId: threadId, message: message),
+          ],
         ),
-        decoration: BoxDecoration(
-          color: mine ? AppColors.primarySoft : AppColors.surfaceMuted,
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: Text(message.text, style: AppTypography.body.copyWith(fontSize: 15)),
+      ),
+    );
+  }
+}
+
+class _InboundMeetupActions extends ConsumerWidget {
+  const _InboundMeetupActions({
+    required this.threadId,
+    required this.message,
+  });
+
+  final String threadId;
+  final ChatMessage message;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final receipt = message.receipt ?? MeetupReceipt.pending;
+    if (receipt != MeetupReceipt.pending) {
+      final label = switch (receipt) {
+        MeetupReceipt.accepted => AppCopy.meetupAccepted,
+        MeetupReceipt.countered => AppCopy.meetupCountered,
+        MeetupReceipt.ignored => AppCopy.meetupIgnored,
+        MeetupReceipt.pending => '',
+      };
+      return Padding(
+        padding: const EdgeInsets.only(bottom: AppSpacing.md),
+        child: Text(label, style: AppTypography.caption),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          PrimaryButton(
+            label: AppCopy.meetupAccept,
+            onPressed: () {
+              ref.read(chatProvider.notifier).setMeetupReceipt(
+                    threadId,
+                    message.id,
+                    MeetupReceipt.accepted,
+                  );
+              ref
+                  .read(analyticsProvider.notifier)
+                  .track(MeetKpi.proposalAccepted);
+            },
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          SecondaryButton(
+            label: AppCopy.meetupCounter,
+            onPressed: () {
+              ref.read(chatProvider.notifier).setMeetupReceipt(
+                    threadId,
+                    message.id,
+                    MeetupReceipt.countered,
+                  );
+              ref
+                  .read(analyticsProvider.notifier)
+                  .track(MeetKpi.proposalCounter);
+              showC03MeetupSheet(context, threadId);
+            },
+          ),
+          TextButton(
+            onPressed: () {
+              ref.read(chatProvider.notifier).setMeetupReceipt(
+                    threadId,
+                    message.id,
+                    MeetupReceipt.ignored,
+                  );
+            },
+            child: Text(
+              AppCopy.meetupIgnore,
+              style: AppTypography.body.copyWith(color: AppColors.textMuted),
+            ),
+          ),
+        ],
       ),
     );
   }

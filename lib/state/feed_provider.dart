@@ -2,7 +2,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:petdate/data/mock_profiles.dart';
 import 'package:petdate/models/discovery_profile.dart';
+import 'package:petdate/state/profile_provider.dart';
 import 'package:petdate/state/session_provider.dart';
+
+enum SpeciesFilter { all, dog, cat }
 
 @immutable
 class FeedState {
@@ -10,23 +13,42 @@ class FeedState {
     this.remaining = const [],
     this.passedIds = const {},
     this.actedIds = const {},
+    this.speciesFilter = SpeciesFilter.all,
   });
 
   final List<DiscoveryProfile> remaining;
   final Set<String> passedIds;
   final Set<String> actedIds;
+  final SpeciesFilter speciesFilter;
 
-  DiscoveryProfile? get current => remaining.isEmpty ? null : remaining.first;
+  List<DiscoveryProfile> get visible {
+    return [
+      for (final p in remaining)
+        if (speciesFilter == SpeciesFilter.all ||
+            (speciesFilter == SpeciesFilter.dog &&
+                p.species == PetSpecies.dog) ||
+            (speciesFilter == SpeciesFilter.cat &&
+                p.species == PetSpecies.cat))
+          p,
+    ];
+  }
+
+  DiscoveryProfile? get current {
+    final list = visible;
+    return list.isEmpty ? null : list.first;
+  }
 
   FeedState copyWith({
     List<DiscoveryProfile>? remaining,
     Set<String>? passedIds,
     Set<String>? actedIds,
+    SpeciesFilter? speciesFilter,
   }) {
     return FeedState(
       remaining: remaining ?? this.remaining,
       passedIds: passedIds ?? this.passedIds,
       actedIds: actedIds ?? this.actedIds,
+      speciesFilter: speciesFilter ?? this.speciesFilter,
     );
   }
 }
@@ -36,6 +58,10 @@ class FeedNotifier extends Notifier<FeedState> {
   FeedState build() {
     ref.watch(sessionLoggedInTickProvider);
     return FeedState(remaining: MockCatalog.withinRadius());
+  }
+
+  void setSpeciesFilter(SpeciesFilter filter) {
+    state = state.copyWith(speciesFilter: filter);
   }
 
   void pass() {

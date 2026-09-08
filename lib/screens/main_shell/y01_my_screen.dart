@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:petdate/copy/app_copy.dart';
+import 'package:petdate/copy/species_copy.dart';
 import 'package:petdate/models/pet_tag.dart';
 import 'package:petdate/screens/o01_goal/o01_goal_screen.dart';
 import 'package:petdate/screens/y01_settings/y01_settings_screen.dart';
@@ -114,10 +115,7 @@ class _PetSummaryCard extends StatelessWidget {
                   [
                     if (draft.breed.trim().isNotEmpty) draft.breed.trim(),
                     if (age != null) '$age살',
-                    if (draft.species != null)
-                      draft.species == PetSpecies.dog
-                          ? AppCopy.speciesDog
-                          : AppCopy.speciesCat,
+                    if (draft.species != null) SpeciesCopy.noun(draft.species),
                   ].join(' · '),
                   style: AppTypography.caption,
                 ),

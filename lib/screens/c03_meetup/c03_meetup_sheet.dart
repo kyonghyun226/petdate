@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:petdate/constants/app_constants.dart';
 import 'package:petdate/copy/app_copy.dart';
 import 'package:petdate/models/chat.dart';
+import 'package:petdate/state/analytics_provider.dart';
 import 'package:petdate/state/chat_provider.dart';
 import 'package:petdate/theme/tokens.dart';
 import 'package:petdate/widgets/buttons.dart';
@@ -132,6 +133,9 @@ class _C03MeetupSheetState extends ConsumerState<_C03MeetupSheet> {
                             memo: _memo.text,
                           ),
                         );
+                    ref
+                        .read(analyticsProvider.notifier)
+                        .track(MeetKpi.proposalSent);
                     final messenger = ScaffoldMessenger.of(context);
                     Navigator.pop(context);
                     messenger.showSnackBar(

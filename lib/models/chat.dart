@@ -5,6 +5,8 @@ enum ChatMessageKind { text, system, meetup }
 
 enum MeetupPlace { park, petCafe, other }
 
+enum MeetupReceipt { pending, accepted, countered, ignored }
+
 @immutable
 class ChatMessage {
   const ChatMessage({
@@ -12,12 +14,24 @@ class ChatMessage {
     required this.text,
     required this.isMine,
     this.kind = ChatMessageKind.text,
+    this.receipt,
   });
 
   final String id;
   final String text;
   final bool isMine;
   final ChatMessageKind kind;
+  final MeetupReceipt? receipt;
+
+  ChatMessage copyWith({MeetupReceipt? receipt}) {
+    return ChatMessage(
+      id: id,
+      text: text,
+      isMine: isMine,
+      kind: kind,
+      receipt: receipt ?? this.receipt,
+    );
+  }
 }
 
 @immutable

@@ -12,12 +12,20 @@ void main() {
   testWidgets('splash shows brand then onboarding copy', (tester) async {
     await tester.pumpWidget(const ProviderScope(child: PetdateApp()));
 
-    expect(find.text(AppCopy.appName), findsWidgets);
+    expect(find.bySemanticsLabel(AppCopy.appName), findsWidgets);
     expect(
       find.byWidgetPredicate(
         (w) => w is Image &&
             w.image is AssetImage &&
-            (w.image as AssetImage).assetName == 'assets/branding/app_icon.png',
+            (w.image as AssetImage).assetName == BrandAssets.appIcon,
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byWidgetPredicate(
+        (w) => w is Image &&
+            w.image is AssetImage &&
+            (w.image as AssetImage).assetName == BrandAssets.wordmark,
       ),
       findsOneWidget,
     );
@@ -48,6 +56,22 @@ void main() {
     expect(find.text(AppCopy.loginTitle), findsOneWidget);
     expect(find.text(AppCopy.loginGoogle), findsOneWidget);
     expect(find.text(AppCopy.loginApple), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (w) => w is Image &&
+            w.image is AssetImage &&
+            (w.image as AssetImage).assetName == BrandAssets.appIcon,
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byWidgetPredicate(
+        (w) => w is Image &&
+            w.image is AssetImage &&
+            (w.image as AssetImage).assetName == BrandAssets.wordmark,
+      ),
+      findsOneWidget,
+    );
 
     await tester.tap(find.text(AppCopy.loginGoogle));
     await tester.pumpAndSettle();
@@ -173,7 +197,7 @@ void main() {
     expect(AppCopy.storeSubtitle, '반려 친구 · 산책 메이트 찾기');
     expect(
       AppCopy.storeTagline,
-      '우리 반려견의 짝을 찾아요. 친구 사귀기부터 같이 산책하기까지.',
+      '우리 반려의 짝을 찾아요. 친구 사귀기부터 같이 산책하기까지.',
     );
     expect(AppCopy.onboardingPages, hasLength(3));
     expect(AppCopy.onboardingPages[1].title, '친구 사귀기 · 같이 산책하기');
@@ -188,7 +212,7 @@ void main() {
     expect(AppColors.safetyText, const Color(0xFF2F6F62));
     expect(BrandAssets.appIcon, 'assets/branding/app_icon.png');
     expect(BrandAssets.wordmark, 'assets/branding/wordmark_v3.png');
-    expect(BrandAssets.hasWordmarkImage, isFalse);
+    expect(BrandAssets.hasWordmarkImage, isTrue);
     expect(BrandAssets.wordmarkHalfSpark, '반짝');
     expect(BrandAssets.wordmarkHalfWalk, '산책');
   });

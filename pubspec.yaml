@@ -1,5 +1,5 @@
 name: petdate
-description: "반짝산책 — 반려 친구 · 산책 메이트 찾기. 우리 반려견의 짝을 찾아요. 친구 사귀기부터 같이 산책하기까지."
+description: "반짝산책 — 반려 친구 · 산책 메이트 찾기. 우리 반려의 짝을 찾아요. 친구 사귀기부터 같이 산책하기까지."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -48,6 +48,20 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/branding/app_icon.png
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: assets/branding/app_icon.png
+  remove_alpha_ios: true
+  web:
+    generate: true
+    image_path: assets/branding/app_icon.png
+    background_color: "#FFFFFF"
+    theme_color: "#FF6B4A"
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -62,6 +76,7 @@ flutter:
 
   assets:
     - assets/branding/app_icon.png
+    - assets/branding/wordmark_v3.png
 
   fonts:
     - family: Pretendard

@@ -88,10 +88,12 @@ class BrandMark extends StatelessWidget {
     super.key,
     this.showWordmark = true,
     this.iconSize = 64,
+    this.wordmarkHeight = 36,
   });
 
   final bool showWordmark;
   final double iconSize;
+  final double wordmarkHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -107,7 +109,7 @@ class BrandMark extends StatelessWidget {
         ),
         if (showWordmark) ...[
           const SizedBox(height: AppSpacing.md),
-          const BrandWordmark(),
+          BrandWordmark(height: wordmarkHeight),
         ],
       ],
     );
