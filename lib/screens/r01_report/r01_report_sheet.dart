@@ -5,6 +5,7 @@ import 'package:petdate/data/social_providers.dart';
 import 'package:petdate/models/discovery_profile.dart';
 import 'package:petdate/state/feed_provider.dart';
 import 'package:petdate/state/session_provider.dart';
+import 'package:petdate/state/spark_provider.dart';
 import 'package:petdate/theme/tokens.dart';
 import 'package:petdate/widgets/buttons.dart';
 
@@ -48,12 +49,12 @@ class _R01ReportSheet extends ConsumerWidget {
             label: AppCopy.blockLabel,
             onPressed: () async {
               final uid = ref.read(sessionProvider).uid;
+              ref.read(sparkProvider.notifier).block(profile.id);
+              ref.read(feedProvider.notifier).dismiss(profile.id);
               if (uid != null) {
-                await ref.read(socialRepositoryProvider).blockUser(
-                      blockerId: uid,
-                      blockedId: profile.id,
-                    );
-                ref.read(feedProvider.notifier).dismiss(profile.id);
+                await ref
+                    .read(socialRepositoryProvider)
+                    .blockUser(blockerId: uid, blockedId: profile.id);
               }
               if (context.mounted) Navigator.pop(context);
             },
@@ -65,7 +66,9 @@ class _R01ReportSheet extends ConsumerWidget {
               onPressed: () async {
                 final uid = ref.read(sessionProvider).uid;
                 if (uid != null) {
-                  await ref.read(socialRepositoryProvider).reportTarget(
+                  await ref
+                      .read(socialRepositoryProvider)
+                      .reportTarget(
                         reporterId: uid,
                         targetType: 'pet',
                         targetId: profile.id,

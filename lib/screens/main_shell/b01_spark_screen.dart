@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:petdate/copy/app_copy.dart';
 import 'package:petdate/flow/app_nav.dart';
 import 'package:petdate/models/spark.dart';
+import 'package:petdate/state/session_provider.dart';
 import 'package:petdate/state/spark_provider.dart';
 import 'package:petdate/theme/tokens.dart';
+import 'package:petdate/widgets/chips.dart';
 import 'package:petdate/widgets/common.dart';
 import 'package:petdate/widgets/pet_photo.dart';
 
@@ -20,7 +22,15 @@ class _B01SparkScreenState extends ConsumerState<B01SparkScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tab = ref.watch(sessionProvider.select((s) => s.mainTab));
     final items = ref.watch(sparkProvider).of(_bucket);
+
+    if (tab == MainTab.spark && _bucket == SparkBucket.received) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ref.read(sparkProvider.notifier).markReceivedSeen();
+      });
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -50,54 +60,114 @@ class _B01SparkScreenState extends ConsumerState<B01SparkScreen> {
                       SparkBucket.matched => AppCopy.sparkMatchedEmpty,
                     },
                     icon: Icons.auto_awesome_outlined,
+                    actionLabel: _bucket == SparkBucket.sent
+                        ? null
+                        : AppCopy.goHome,
+                    onAction: _bucket == SparkBucket.sent
+                        ? null
+                        : () => ref
+                              .read(sessionProvider.notifier)
+                              .selectTab(MainTab.home),
                   )
-                : ListView.separated(
+                : ListView.builder(
                     itemCount: items.length,
-                    separatorBuilder: (_, _) => const Divider(indent: 88),
                     itemBuilder: (context, i) {
                       final item = items[i];
-                      return ListTile(
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.lg,
-                          vertical: AppSpacing.xs,
-                        ),
-                        leading: SizedBox(
-                          width: 56,
-                          height: 56,
-                          child: PetPhoto(
-                            seed: item.profile.photoSeeds.first,
-                            circle: true,
-                            iconSize: 28,
-                          ),
-                        ),
-                        title: Text(
-                          '${item.profile.name}  ·  ${item.profile.ageYears}살',
-                          style: AppTypography.button,
-                        ),
-                        subtitle: Text(
-                          switch (item.bucket) {
-                            SparkBucket.received => '나를 반짝했어요',
-                            SparkBucket.sent => '반짝을 보냈어요',
-                            SparkBucket.matched => '매칭됐어요',
-                          },
-                          style: AppTypography.caption,
-                        ),
-                        trailing: const Icon(
-                          Icons.chevron_right_rounded,
-                          color: AppColors.tabInactive,
-                        ),
-                        onTap: () {
-                          if (item.bucket == SparkBucket.matched) {
-                            openChatRoom(context, ref, item.profile);
-                          } else {
-                            openProfileDetail(context, item.profile);
-                          }
-                        },
+                      return _SparkRow(
+                        item: item,
+                        onOpen: () => _openRow(item),
+                        onReply: item.bucket == SparkBucket.received
+                            ? () => _reply(item)
+                            : null,
                       );
                     },
                   ),
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _openRow(SparkItem item) async {
+    if (item.bucket == SparkBucket.matched) {
+      await openChatRoom(context, ref, item.profile);
+      return;
+    }
+    await openProfileDetail(context, item.profile);
+  }
+
+  Future<void> _reply(SparkItem item) async {
+    await likeAndMaybeMatch(context, ref, item.profile);
+    if (!mounted) return;
+    final current = ref.read(sparkProvider).byProfile(item.profile.id);
+    if (current?.bucket == SparkBucket.matched) {
+      setState(() => _bucket = SparkBucket.matched);
+    }
+  }
+}
+
+class _SparkRow extends StatelessWidget {
+  const _SparkRow({required this.item, required this.onOpen, this.onReply});
+
+  final SparkItem item;
+  final VoidCallback onOpen;
+  final VoidCallback? onReply;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.surface,
+      child: InkWell(
+        onTap: onOpen,
+        child: Container(
+          key: ValueKey('spark-row-${item.profile.id}'),
+          height: AppSizes.sparkRowHeight,
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+          decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: AppColors.border)),
+          ),
+          child: Row(
+            children: [
+              SizedBox(
+                width: AppSizes.sparkThumb,
+                height: AppSizes.sparkThumb,
+                child: PetPhoto(
+                  seed: item.profile.photoSeeds.first,
+                  circle: true,
+                  iconSize: 22,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.profile.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.body.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      item.metaCaption(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.caption,
+                    ),
+                  ],
+                ),
+              ),
+              if (onReply != null)
+                SparkReplyChip(
+                  key: ValueKey('spark-reply-${item.profile.id}'),
+                  onTap: onReply!,
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -111,36 +181,23 @@ class _Segment extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 44,
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceMuted,
-        borderRadius: BorderRadius.circular(AppRadius.button),
-      ),
+    return SizedBox(
+      height: AppSizes.sparkSegmentHeight,
       child: Row(
         children: [
           for (final bucket in SparkBucket.values)
             Expanded(
               child: GestureDetector(
+                key: ValueKey('spark-segment-${bucket.name}'),
                 onTap: () => onChanged(bucket),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 180),
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: value == bucket
-                        ? AppColors.surface
+                        ? AppColors.primarySoft
                         : Colors.transparent,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: value == bucket
-                        ? const [
-                            BoxShadow(
-                              color: Color(0x14000000),
-                              blurRadius: 6,
-                              offset: Offset(0, 1),
-                            ),
-                          ]
-                        : null,
+                    borderRadius: BorderRadius.circular(AppRadius.chip),
                   ),
                   child: Text(
                     switch (bucket) {
@@ -151,7 +208,7 @@ class _Segment extends StatelessWidget {
                     style: AppTypography.caption.copyWith(
                       fontWeight: FontWeight.w600,
                       color: value == bucket
-                          ? AppColors.text
+                          ? AppColors.primary
                           : AppColors.textMuted,
                     ),
                   ),

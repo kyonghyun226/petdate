@@ -119,6 +119,28 @@ abstract final class MockCatalog {
     for (final p in profiles) {
       if (p.id == id) return p;
     }
+    if (id == blocked.id) return blocked;
     return null;
   }
+
+  /// Inbound spark that is blocked — B01 must hide this row.
+  static final blocked = DiscoveryProfile(
+    id: 'nuri',
+    name: '누리',
+    ageYears: 6,
+    distanceKm: 0.3,
+    breed: '시바',
+    species: PetSpecies.dog,
+    gender: PetGender.male,
+    size: PetSize.medium,
+    tagKeys: [
+      PetTags.walkLover.key,
+      PetTags.parkLover.key,
+      PetTags.quietMeetups.key,
+    ],
+    bio: '차단된 목 프로필이에요.',
+    photoSeeds: [6],
+    preferredTimeSlots: [PreferredTimeSlot.weekendMorning],
+    likedMe: true,
+  );
 }
