@@ -51,6 +51,9 @@ abstract final class AppSizes {
   static const double cardInset = 32;
   static const double cardPhotoShare = 0.62;
   static const double cardPhotoAspect = 4 / 5;
+  static const double sparkSegmentHeight = 40;
+  static const double sparkRowHeight = 72;
+  static const double sparkThumb = 48;
 }
 
 abstract final class AppTypography {

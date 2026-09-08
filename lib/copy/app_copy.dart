@@ -71,9 +71,10 @@ abstract final class AppCopy {
   static const sparkReceived = '받은';
   static const sparkSent = '보낸';
   static const sparkMatched = '매칭됨';
+  static const sparkReply = '반짝 화답';
   static const sparkEmpty = '아직 받은 반짝이 없어요';
   static const sparkSentEmpty = '아직 보낸 반짝이 없어요';
-  static const sparkMatchedEmpty = '아직 매칭된 친구가 없어요';
+  static const sparkMatchedEmpty = '아직 반짝한 친구가 없어요';
 
   static const chatEmpty = '아직 반짝한 친구가 없어요';
   static const chatEmptyHint = '서로 반짝하면 여기에서 인사할 수 있어요.';

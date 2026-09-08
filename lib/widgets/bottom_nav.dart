@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:petdate/copy/app_copy.dart';
 import 'package:petdate/state/session_provider.dart';
+import 'package:petdate/state/spark_provider.dart';
 import 'package:petdate/theme/tokens.dart';
 
-class AppBottomNav extends StatelessWidget {
+class AppBottomNav extends ConsumerWidget {
   const AppBottomNav({
     super.key,
     required this.current,
@@ -14,7 +16,11 @@ class AppBottomNav extends StatelessWidget {
   final ValueChanged<MainTab> onSelect;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final sparkBadge = ref.watch(
+      sparkProvider.select((s) => s.unseenReceivedCount),
+    );
+
     return DecoratedBox(
       decoration: const BoxDecoration(
         color: AppColors.surface,
@@ -38,6 +44,7 @@ class AppBottomNav extends StatelessWidget {
                 selected: current == MainTab.spark,
                 outlined: Icons.auto_awesome_outlined,
                 filled: Icons.auto_awesome,
+                badgeCount: sparkBadge,
                 onTap: () => onSelect(MainTab.spark),
               ),
               _Item(
@@ -69,6 +76,7 @@ class _Item extends StatelessWidget {
     required this.outlined,
     required this.filled,
     required this.onTap,
+    this.badgeCount = 0,
   });
 
   final String label;
@@ -76,6 +84,7 @@ class _Item extends StatelessWidget {
   final IconData outlined;
   final IconData filled;
   final VoidCallback onTap;
+  final int badgeCount;
 
   @override
   Widget build(BuildContext context) {
@@ -86,7 +95,23 @@ class _Item extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(selected ? filled : outlined, color: color, size: 24),
+            SizedBox(
+              width: 32,
+              height: 24,
+              child: Stack(
+                clipBehavior: Clip.none,
+                alignment: Alignment.center,
+                children: [
+                  Icon(selected ? filled : outlined, color: color, size: 24),
+                  if (badgeCount > 0)
+                    Positioned(
+                      top: -2,
+                      right: -2,
+                      child: _Badge(count: badgeCount),
+                    ),
+                ],
+              ),
+            ),
             const SizedBox(height: AppSpacing.xs),
             Text(
               label,
@@ -96,6 +121,36 @@ class _Item extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Badge extends StatelessWidget {
+  const _Badge({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = count > 9 ? '9+' : '$count';
+    return Container(
+      key: const ValueKey('spark-badge'),
+      constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      decoration: const BoxDecoration(
+        color: AppColors.primary,
+        borderRadius: BorderRadius.all(Radius.circular(AppRadius.chip)),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        label,
+        style: AppTypography.caption.copyWith(
+          color: AppColors.onPrimary,
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          height: 1,
         ),
       ),
     );

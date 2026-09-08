@@ -232,8 +232,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text(AppCopy.sparkMatched));
     await tester.pumpAndSettle();
-    expect(find.textContaining('콩이'), findsWidgets);
-    await tester.tap(find.textContaining('콩이').first);
+    expect(find.byKey(const ValueKey('spark-row-kong')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('spark-row-kong')));
     await tester.pumpAndSettle();
     expect(find.text(AppCopy.chatSystemMatch), findsOneWidget);
   });
@@ -389,6 +389,9 @@ void main() {
     expect(AppSizes.cardInset, 32);
     expect(AppSizes.cardPhotoShare, 0.62);
     expect(AppSizes.cardPhotoAspect, 4 / 5);
+    expect(AppSizes.sparkSegmentHeight, 40);
+    expect(AppSizes.sparkRowHeight, 72);
+    expect(AppSizes.sparkThumb, 48);
     expect(AppRadius.card, 20);
     expect(GoalCopy.homeTitle(UserGoal.friend), '오늘의 반짝 친구');
     expect(GoalCopy.homeTitle(UserGoal.walk), '같이 산책할 짝');
