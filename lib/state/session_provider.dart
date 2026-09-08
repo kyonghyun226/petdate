@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:petdate/auth/auth_repository.dart';
 import 'package:petdate/copy/app_copy.dart';
+import 'package:petdate/firebase/identity_contract.dart';
 
 enum AppPhase { splash, onboarding, login, goal, profile, main }
 
@@ -68,23 +71,42 @@ class SessionNotifier extends Notifier<AppSession> {
 
   /// After splash: a persisted Firebase user skips login (and onboarding),
   /// but still hits goal/profile gates until those flags are set.
-  void completeSplash() {
+  ///
+  /// [remoteGoal] / [remoteProfileCompleted] come from Firestore bootstrap
+  /// when Auth is live.
+  void completeSplash({
+    UserGoal? remoteGoal,
+    bool remoteProfileCompleted = false,
+  }) {
     final user = _auth.currentUser;
     if (user != null) {
+      final goal = remoteGoal ?? state.goal;
+      final profileCompleted =
+          remoteProfileCompleted || state.profileCompleted;
       state = state.copyWith(
         isLoggedIn: true,
         onboardingCompleted: true,
         uid: user.uid,
-        phase: _phaseForSignedInUser(),
+        goal: goal,
+        profileCompleted: profileCompleted,
+        phase: _phaseForSignedInUser(
+          goal: goal,
+          profileCompleted: profileCompleted,
+        ),
       );
       return;
     }
     state = state.copyWith(phase: AppPhase.onboarding);
   }
 
-  AppPhase _phaseForSignedInUser() {
-    if (state.profileCompleted) return AppPhase.main;
-    if (state.goal != null) return AppPhase.profile;
+  AppPhase _phaseForSignedInUser({
+    UserGoal? goal,
+    bool? profileCompleted,
+  }) {
+    final done = profileCompleted ?? state.profileCompleted;
+    final resolvedGoal = goal ?? state.goal;
+    if (done) return AppPhase.main;
+    if (resolvedGoal != null) return AppPhase.profile;
     return AppPhase.goal;
   }
 
@@ -130,6 +152,22 @@ class SessionNotifier extends Notifier<AppSession> {
   void confirmGoal() {
     if (state.goal == null) return;
     state = state.copyWith(phase: AppPhase.profile);
+    unawaited(
+      IdentityVerification.ensureUserDocExists(
+        uid: state.uid,
+        goal: state.goal,
+      ),
+    );
+  }
+
+  /// Y01 goal change — persist without leaving main.
+  void applyGoal() {
+    unawaited(
+      IdentityVerification.ensureUserDocExists(
+        uid: state.uid,
+        goal: state.goal,
+      ),
+    );
   }
 
   void backFromProfile() {

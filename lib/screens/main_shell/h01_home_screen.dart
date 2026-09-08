@@ -359,6 +359,7 @@ class _ProfileCard extends StatelessWidget {
   }
 
   String _distance(double km) {
+    if (km <= 0) return '근처';
     if (km < 1) return '${(km * 1000).round()}m';
     return '${km.toStringAsFixed(1)}km';
   }

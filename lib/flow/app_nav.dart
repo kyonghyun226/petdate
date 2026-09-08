@@ -79,7 +79,7 @@ Future<void> likeAndMaybeMatch(
     await promptIdentityVerification(context);
     return;
   }
-  final matched = SparkActions.like(ref, profile);
+  final matched = await SparkActions.like(ref, profile);
   if (matched) {
     if (!context.mounted) return;
     await openMatchOverlay(context, ref, profile, replace: fromDetail);

@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:petdate/data/backend_mode.dart';
 import 'package:petdate/data/mock_profiles.dart';
+import 'package:petdate/data/social_providers.dart';
 import 'package:petdate/models/discovery_profile.dart';
 import 'package:petdate/models/spark.dart';
 import 'package:petdate/state/session_provider.dart';
@@ -26,16 +28,28 @@ class SparkNotifier extends Notifier<SparkState> {
   @override
   SparkState build() {
     ref.watch(sessionLoggedInTickProvider);
-    final received = [
-      for (final p in MockCatalog.withinRadius())
-        if (p.likedMe)
-          SparkItem(
-            id: 'spark_${p.id}',
-            profile: p,
-            bucket: SparkBucket.received,
-          ),
-    ];
-    return SparkState(items: received);
+    if (ref.watch(useMockDataProvider)) {
+      final received = [
+        for (final p in MockCatalog.withinRadius())
+          if (p.likedMe)
+            SparkItem(
+              id: 'spark_${p.id}',
+              profile: p,
+              bucket: SparkBucket.received,
+            ),
+      ];
+      return SparkState(items: received);
+    }
+
+    final uid = ref.watch(sessionProvider.select((s) => s.uid));
+    if (uid == null) return const SparkState();
+    final sub = ref.read(socialRepositoryProvider).watchSpark(myUid: uid).listen(
+      (items) {
+        state = SparkState(items: items);
+      },
+    );
+    ref.onDispose(sub.cancel);
+    return const SparkState();
   }
 
   /// Returns true when the like creates a match.

@@ -64,6 +64,11 @@ class ChatThread {
   int get outboundCount =>
       messages.where((m) => m.isMine && m.kind != ChatMessageKind.system).length;
 
+  String get preview {
+    if (messages.isEmpty) return '';
+    return messages.last.text;
+  }
+
   ChatThread copyWith({List<ChatMessage>? messages}) {
     return ChatThread(
       id: id,

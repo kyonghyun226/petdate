@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:petdate/data/backend_mode.dart';
 import 'package:petdate/data/mock_profiles.dart';
+import 'package:petdate/data/social_providers.dart';
 import 'package:petdate/models/discovery_profile.dart';
 import 'package:petdate/state/profile_provider.dart';
 import 'package:petdate/state/session_provider.dart';
@@ -54,10 +56,70 @@ class FeedState {
 }
 
 class FeedNotifier extends Notifier<FeedState> {
+  List<DiscoveryProfile> _catalog = const [];
+  Set<String> _blocked = {};
+
   @override
   FeedState build() {
     ref.watch(sessionLoggedInTickProvider);
-    return FeedState(remaining: MockCatalog.withinRadius());
+    final useMock = ref.watch(useMockDataProvider);
+    if (useMock) {
+      _catalog = MockCatalog.withinRadius();
+      _blocked = {};
+      return FeedState(remaining: _catalog);
+    }
+
+    final uid = ref.watch(sessionProvider.select((s) => s.uid));
+    if (uid == null) {
+      _catalog = const [];
+      _blocked = {};
+      return const FeedState();
+    }
+
+    final sub = ref
+        .read(socialRepositoryProvider)
+        .watchExplore(myUid: uid, blockedIds: const {})
+        .listen((pets) {
+      _catalog = pets;
+      _applyCatalog();
+    });
+    final blockSub = ref
+        .read(socialRepositoryProvider)
+        .watchBlockedIds(blockerId: uid)
+        .listen((ids) {
+      _blocked = ids;
+      _applyCatalog();
+    });
+    ref.onDispose(() {
+      sub.cancel();
+      blockSub.cancel();
+    });
+    return const FeedState();
+  }
+
+  void _applyCatalog() {
+    final liked = state.actedIds.difference(state.passedIds);
+    final catalogById = {for (final p in _catalog) p.id: p};
+    final ordered = <DiscoveryProfile>[];
+    final seen = <String>{};
+    for (final p in state.remaining) {
+      final fresh = catalogById[p.id];
+      if (fresh == null || liked.contains(p.id) || _blocked.contains(p.id)) {
+        continue;
+      }
+      ordered.add(fresh);
+      seen.add(p.id);
+    }
+    for (final p in _catalog) {
+      if (seen.contains(p.id) ||
+          liked.contains(p.id) ||
+          _blocked.contains(p.id)) {
+        continue;
+      }
+      if (state.passedIds.contains(p.id)) continue;
+      ordered.add(p);
+    }
+    state = state.copyWith(remaining: ordered);
   }
 
   void setSpeciesFilter(SpeciesFilter filter) {
@@ -88,11 +150,10 @@ class FeedNotifier extends Notifier<FeedState> {
 
   /// Restores passed (not liked/matched) profiles into the stack.
   void refresh() {
-    final catalog = MockCatalog.withinRadius();
     final remainingIds = {for (final p in state.remaining) p.id};
     final next = [
       ...state.remaining,
-      for (final p in catalog)
+      for (final p in _catalog)
         if (!remainingIds.contains(p.id) &&
             (state.passedIds.contains(p.id) || !state.actedIds.contains(p.id)))
           p,

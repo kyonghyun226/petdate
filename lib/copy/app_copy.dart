@@ -148,9 +148,10 @@ abstract final class AppCopy {
 
   static const reportMenu = '신고 · 차단';
   static const reportTitle = '이 프로필을 신고할까요?';
-  static const reportHint = '신고와 차단은 다음 버전에서 연결돼요.';
+  static const reportHint = '허위·스팸·불편한 행동은 신고해 주세요. 차단하면 더 이상 보이지 않아요.';
   static const blockLabel = '차단하기';
   static const reportLabel = '신고하기';
+  static const reportSent = '신고가 접수됐어요';
   static const close = '닫기';
 
   static const safetyBanner = '만남은 공공장소에서, 반려와 함께 안전하게';
