@@ -4,6 +4,7 @@ import 'package:petdate/copy/app_copy.dart';
 import 'package:petdate/flow/app_nav.dart';
 import 'package:petdate/state/chat_provider.dart';
 import 'package:petdate/state/session_provider.dart';
+import 'package:petdate/state/spark_provider.dart';
 import 'package:petdate/theme/tokens.dart';
 import 'package:petdate/widgets/common.dart';
 import 'package:petdate/widgets/pet_photo.dart';
@@ -13,7 +14,8 @@ class C01ChatScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final threads = ref.watch(chatProvider).threads;
+    final blocked = ref.watch(sparkProvider.select((s) => s.blockedIds));
+    final threads = ref.watch(chatProvider).visible(blocked);
 
     return Scaffold(
       appBar: AppBar(

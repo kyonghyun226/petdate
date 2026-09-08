@@ -198,6 +198,10 @@ void main() {
       GoalCopy.firstMessageChips(UserGoal.friend, AppCopy.fallbackPetName).first,
     );
     expect(find.text(AppCopy.chatSystemMatch), findsOneWidget);
+    expect(
+      container.read(analyticsProvider).events,
+      contains(MeetKpi.firstMessageTemplateUsed),
+    );
 
     await tester.tap(find.text(AppCopy.proposeMeetup));
     await tester.pumpAndSettle();
@@ -398,6 +402,7 @@ void main() {
     expect(SpeciesCopy.noun(PetSpecies.dog), AppCopy.petNounDog);
     expect(SpeciesCopy.noun(PetSpecies.cat), AppCopy.petNounCat);
     expect(SpeciesCopy.noun(null), AppCopy.petNounFallback);
+    expect(MeetKpi.firstMessageTemplateUsed, 'first_message_template_used');
     expect(MeetKpi.proposalSent, 'meet_proposal_sent');
     expect(MeetKpi.proposalAccepted, 'meet_proposal_accepted');
     expect(MeetKpi.proposalCounter, 'meet_proposal_counter');

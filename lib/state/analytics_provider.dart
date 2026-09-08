@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:petdate/state/session_provider.dart';
 
 abstract final class MeetKpi {
+  static const firstMessageTemplateUsed = 'first_message_template_used';
   static const proposalSent = 'meet_proposal_sent';
   static const proposalAccepted = 'meet_proposal_accepted';
   static const proposalCounter = 'meet_proposal_counter';

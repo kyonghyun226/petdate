@@ -54,6 +54,7 @@ abstract final class AppSizes {
   static const double sparkSegmentHeight = 40;
   static const double sparkRowHeight = 72;
   static const double sparkThumb = 48;
+  static const double templateChipHeight = 36;
 }
 
 abstract final class AppTypography {

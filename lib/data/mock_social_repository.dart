@@ -236,15 +236,6 @@ class MockSocialRepository implements SocialRepository {
   }) async {
     final thread = _threads[matchId];
     if (thread == null) return;
-    final place = MeetupPlaceCopy.label(proposal.place);
-    final detail = proposal.place == MeetupPlace.other &&
-            proposal.placeDetail.trim().isNotEmpty
-        ? '${proposal.placeDetail.trim()} · $place'
-        : place;
-    final memo = proposal.memo.trim();
-    final text = memo.isEmpty
-        ? '만남 제안 · $detail · ${proposal.timeLabel}'
-        : '만남 제안 · $detail · ${proposal.timeLabel}\n$memo';
     final id = 'prop_${_msgSeq++}';
     _proposalStatus[id] = MeetupReceipt.pending;
     _threads[matchId] = thread.copyWith(
@@ -252,10 +243,11 @@ class MockSocialRepository implements SocialRepository {
         ...thread.messages,
         ChatMessage(
           id: id,
-          text: text,
+          text: MeetupCopy.cardText(proposal),
           isMine: true,
           kind: ChatMessageKind.meetup,
           receipt: MeetupReceipt.pending,
+          proposal: proposal,
         ),
       ],
     );

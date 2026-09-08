@@ -94,6 +94,57 @@ class TimeSlotChips extends StatelessWidget {
   }
 }
 
+/// C02 first-message / meetup chips. Insert-only templates use this look.
+class TemplateChip extends StatelessWidget {
+  const TemplateChip({
+    super.key,
+    required this.label,
+    required this.onTap,
+    this.leading,
+  });
+
+  final String label;
+  final VoidCallback onTap;
+  final IconData? leading;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.primarySoft,
+      shape: const StadiumBorder(),
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const StadiumBorder(),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            minHeight: AppSizes.templateChipHeight,
+            maxHeight: AppSizes.templateChipHeight,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (leading != null) ...[
+                  Icon(leading, size: 16, color: AppColors.primary),
+                  const SizedBox(width: AppSpacing.xs),
+                ],
+                Text(
+                  label,
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// B01 received-row CTA. Sparkle only — never heart or paw.
 class SparkReplyChip extends StatelessWidget {
   const SparkReplyChip({super.key, required this.onTap});
