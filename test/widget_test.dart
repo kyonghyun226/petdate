@@ -5,6 +5,7 @@ import 'package:petdate/app.dart';
 import 'package:petdate/constants/app_constants.dart';
 import 'package:petdate/copy/app_copy.dart';
 import 'package:petdate/state/session_provider.dart';
+import 'package:petdate/theme/brand_assets.dart';
 import 'package:petdate/theme/tokens.dart';
 
 void main() {
@@ -185,5 +186,10 @@ void main() {
     expect(AppConstants.searchRadiusKm, 5);
     expect(AppColors.safetyBg, const Color(0xFFE8F7F3));
     expect(AppColors.safetyText, const Color(0xFF2F6F62));
+    expect(BrandAssets.appIcon, 'assets/branding/app_icon.png');
+    expect(BrandAssets.wordmark, 'assets/branding/wordmark_v3.png');
+    expect(BrandAssets.hasWordmarkImage, isFalse);
+    expect(BrandAssets.wordmarkHalfSpark, '반짝');
+    expect(BrandAssets.wordmarkHalfWalk, '산책');
   });
 }

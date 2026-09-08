@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:petdate/copy/app_copy.dart';
 import 'package:petdate/theme/brand_assets.dart';
 import 'package:petdate/theme/tokens.dart';
+import 'package:petdate/widgets/brand_wordmark.dart';
 import 'package:petdate/widgets/buttons.dart';
 
 class StepIndicator extends StatelessWidget {
@@ -106,31 +107,7 @@ class BrandMark extends StatelessWidget {
         ),
         if (showWordmark) ...[
           const SizedBox(height: AppSpacing.md),
-          if (BrandAssets.hasWordmarkImage)
-            Image.asset(
-              BrandAssets.wordmark,
-              height: 28,
-              filterQuality: FilterQuality.high,
-              semanticLabel: AppCopy.appName,
-            )
-          else
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  '✦',
-                  style: AppTypography.title.copyWith(
-                    fontSize: 20,
-                    color: AppColors.primary,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Text(
-                  AppCopy.appName,
-                  style: AppTypography.title.copyWith(fontSize: 22),
-                ),
-              ],
-            ),
+          const BrandWordmark(),
         ],
       ],
     );
