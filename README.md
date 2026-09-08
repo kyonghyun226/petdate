@@ -82,7 +82,11 @@ Auth가 없으면 (위젯 테스트, 미설정 호스트) 탐색·좋아요·채
 | 채팅 | `threads/{matchId}/messages`, `meetProposals` |
 | 차단·신고 | `blocks/{blockerId}_{blockedId}`, `reports` (클라 read 없음) |
 
-컬렉션: `users` / `pets` / `likes` / `matches` / `threads` / `messages` / `meetProposals` / `blocks` / `reports`.
+컬렉션: `users` / `pets` / `likes` / `matches` / `threads` / `messages` / `meetProposals` / `blocks` / `reports` / `users/{uid}/fcmTokens`.
+
+FCM 토큰은 클라가 `users/{uid}/fcmTokens/{sha256(token)}`에 upsert하고,
+`onMessageCreated` / `onMatchCreated`가 Admin FCM으로 보냅니다. 계약은
+[`functions/README.md`](functions/README.md) FCM 절을 따릅니다.
 
 ## 남은 콘솔 / 설정 체크리스트
 
@@ -101,6 +105,9 @@ Auth가 없으면 (위젯 테스트, 미설정 호스트) 탐색·좋아요·채
 
 - [ ] Firestore rules·indexes가 `petdatinglove`에 deploy되어 있는지 확인 (`firestore.rules`, `firestore.indexes.json`)
 - [ ] `markUserVerified` callable이 `asia-northeast3`에 live (이미 deploy됨으로 안내됨 — 콘솔에서 한 번 더 확인)
+- [ ] `firebase deploy --only firestore:rules,functions` 후 `onMessageCreated` / `onMatchCreated`가 `asia-northeast3`에 live
+- [ ] Cloud Messaging 사용 + iOS APNs 키/인증서 업로드. Android `google-services.json`은 저장소에 있음
+- [ ] 클라: 알림 권한 요청 후 owner-only `fcmTokens` upsert (`tokenHash` = sha256 hex, raw token을 doc id로 쓰지 않음)
 - [ ] Blaze 플랜 (Functions 2nd gen)
 - [ ] Storage 사진 업로드는 아직 deny-all. 펫 문서는 `pets/{uid}/photo_*` **경로 문자열**만 저장합니다. 미디어 PR 전까지 UI는 placeholder seed입니다.
 - [ ] (선택) 탐색용 대략 위치: `pets.geohash` + `latlng` — 없으면 반경 필터 없이 목록

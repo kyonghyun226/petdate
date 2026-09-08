@@ -86,6 +86,79 @@ is typically within the free quota.
 
 This repo does **not** auto-deploy functions (no service-account CI).
 
+## FCM push (P1) — contract for 앱개발자
+
+Client **registers** tokens. Infra **sends**. Do not use the raw FCM
+token as the Firestore document id.
+
+### Token storage
+
+| | |
+| --- | --- |
+| Path | `users/{uid}/fcmTokens/{tokenHash}` |
+| `tokenHash` | sha256 hex of `token` (64 lowercase `[a-f0-9]`) |
+| Fields | `token` (string 32–4096), `platform` (`ios` \| `android`), `updatedAt` (`FieldValue.serverTimestamp()`) |
+| Rules | Owner create / update / delete / read only. Peers cannot read another user's tokens. |
+
+```dart
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+String fcmTokenHash(String token) =>
+    sha256.convert(utf8.encode(token)).toString();
+
+Future<void> upsertFcmToken({
+  required String uid,
+  required String token,
+  required String platform, // 'ios' | 'android'
+}) {
+  return FirebaseFirestore.instance
+      .collection('users')
+      .doc(uid)
+      .collection('fcmTokens')
+      .doc(fcmTokenHash(token))
+      .set({
+    'token': token,
+    'platform': platform,
+    'updatedAt': FieldValue.serverTimestamp(),
+  });
+}
+```
+
+Delete the same doc on logout / token refresh. Request OS notification
+permission before registering.
+
+### Send Functions (Admin FCM, `asia-northeast3`)
+
+| Name | Trigger | Recipients | Notification | Data |
+| --- | --- | --- | --- | --- |
+| `onMessageCreated` | `threads/{matchId}/messages/{messageId}` create | match `userIds` except `senderId` | title `반짝산책` / body `새 메시지가 도착했어요` | `matchId`, `type: message` |
+| `onMatchCreated` | `matches/{matchId}` create | both `userIds` (once each) | title `반짝산책` / body `산책 메이트와 연결됐어요` | `matchId`, `type: match` |
+
+Copy is walk-mate tone (not dating). Message text is **not** included.
+Stale tokens (`unregistered` / `invalid-registration-token`) are deleted.
+`meetProposals` fan-out is stubbed for a later PR.
+
+### Console checklist (cannot be done from this repo)
+
+1. Firebase console → Cloud Messaging: enable FCM for `petdatinglove`.
+2. **iOS:** upload an APNs auth key (or certificate) on the Cloud Messaging
+   settings page. The app must have the Push Notifications capability.
+3. **Android:** `android/app/google-services.json` is already in the repo
+   (`kr.mooca.petdate`). Confirm the Android app exists in the same project.
+4. Client must request notification permission (iOS + Android 13+) and
+   upsert the token at the path above.
+
+### Deploy (rules + functions together)
+
+```bash
+npx -y firebase-tools@latest login
+npx -y firebase-tools@latest use petdatinglove
+npm ci --prefix functions
+npx -y firebase-tools@latest deploy --only firestore:rules,functions
+```
+
 ## Local build / test
 
 ```bash

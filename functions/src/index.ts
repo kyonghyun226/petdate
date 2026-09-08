@@ -1,19 +1,14 @@
-import {initializeApp} from "firebase-admin/app";
-import {getFirestore} from "firebase-admin/firestore";
 import {setGlobalOptions} from "firebase-functions";
 import {onCall} from "firebase-functions/https";
 import {callerUid} from "./caller";
+import {db} from "./firebase";
 import {setVerifiedAtForUid} from "./verifiedAt";
 
-initializeApp();
-
-// Seoul — keep callables next to the intended Firestore region.
+// Seoul — keep callables and Firestore triggers next to Firestore.
 setGlobalOptions({
   region: "asia-northeast3",
   maxInstances: 10,
 });
-
-const db = getFirestore();
 
 /**
  * A02 success path (mock or real ID UI).
@@ -25,3 +20,6 @@ export const markUserVerified = onCall(async (request) => {
   const uid = callerUid(request.auth?.uid, request.data?.uid);
   return setVerifiedAtForUid(db, uid);
 });
+
+export {onMessageCreated} from "./onMessageCreated";
+export {onMatchCreated} from "./onMatchCreated";
