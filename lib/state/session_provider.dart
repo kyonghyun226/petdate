@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:petdate/auth/auth_repository.dart';
 import 'package:petdate/copy/app_copy.dart';
 
 enum AppPhase { splash, onboarding, login, goal, profile, main }
@@ -25,7 +26,8 @@ class AppSession {
   final UserGoal? goal;
   final MainTab mainTab;
 
-  /// Mock `users/{uid}` document id. Real Auth uid lands here after Google/Apple.
+  /// Firebase Auth uid when signed in. Feature code can watch this without
+  /// touching navigation.
   final String? uid;
 
   bool get showBottomNav => phase == AppPhase.main && isLoggedIn;
@@ -53,12 +55,37 @@ class AppSession {
   }
 }
 
+/// Owns splash → onboarding → login → goal → profile → main.
+///
+/// Feature screens should read auth here, not replace this machine:
+/// - [AppSession.uid] / [AppSession.isLoggedIn]
+/// - [authStateChangesProvider] / [currentAuthUserProvider]
 class SessionNotifier extends Notifier<AppSession> {
   @override
   AppSession build() => const AppSession();
 
+  AuthRepository get _auth => ref.read(authRepositoryProvider);
+
+  /// After splash: a persisted Firebase user skips login (and onboarding),
+  /// but still hits goal/profile gates until those flags are set.
   void completeSplash() {
+    final user = _auth.currentUser;
+    if (user != null) {
+      state = state.copyWith(
+        isLoggedIn: true,
+        onboardingCompleted: true,
+        uid: user.uid,
+        phase: _phaseForSignedInUser(),
+      );
+      return;
+    }
     state = state.copyWith(phase: AppPhase.onboarding);
+  }
+
+  AppPhase _phaseForSignedInUser() {
+    if (state.profileCompleted) return AppPhase.main;
+    if (state.goal != null) return AppPhase.profile;
+    return AppPhase.goal;
   }
 
   void completeOnboarding() {
@@ -75,14 +102,25 @@ class SessionNotifier extends Notifier<AppSession> {
     );
   }
 
-  /// Mock social login. Real Google/Apple auth is out of scope.
+  /// Session update after a successful provider sign-in. Tests can call this
+  /// directly to skip the Google/Apple sheets.
   /// Likes stay locked until [UserDoc] listen sees `verifiedAt`.
-  void mockLogin() {
+  void completeLogin() {
     state = state.copyWith(
       isLoggedIn: true,
       phase: AppPhase.goal,
-      uid: 'mock_uid',
+      uid: _auth.currentUser?.uid,
     );
+  }
+
+  Future<void> signInWithGoogle() async {
+    await _auth.signInWithGoogle();
+    completeLogin();
+  }
+
+  Future<void> signInWithApple() async {
+    await _auth.signInWithApple();
+    completeLogin();
   }
 
   void setGoal(UserGoal goal) {
@@ -115,6 +153,11 @@ class SessionNotifier extends Notifier<AppSession> {
       phase: AppPhase.login,
       onboardingCompleted: true,
     );
+  }
+
+  Future<void> signOut() async {
+    await _auth.signOut();
+    logout();
   }
 }
 
