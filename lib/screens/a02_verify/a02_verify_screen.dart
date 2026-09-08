@@ -19,23 +19,20 @@ class A02VerifyScreen extends ConsumerStatefulWidget {
 
 class _A02VerifyScreenState extends ConsumerState<A02VerifyScreen> {
   bool _busy = false;
-  bool _succeeded = false;
 
   Future<void> _confirm() async {
     if (_busy) return;
     setState(() => _busy = true);
     final uid = ref.read(sessionProvider).uid;
+    // CF/Admin writes verifiedAt. Client only calls, then listens/reads.
     final ok = await IdentityVerification.requestMarkVerified(uid: uid);
     if (!mounted) return;
     if (ok) {
-      ref.read(userDocProvider.notifier).applySnapshot();
-      setState(() {
-        _succeeded = true;
-        _busy = false;
-      });
-      return;
+      await ref
+          .read(userDocProvider.notifier)
+          .pullRemoteUserDoc(afterCallableSuccess: true);
     }
-    setState(() => _busy = false);
+    if (mounted) setState(() => _busy = false);
   }
 
   void _goSpark() {
@@ -50,13 +47,14 @@ class _A02VerifyScreenState extends ConsumerState<A02VerifyScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final verified = ref.watch(isVerifiedProvider);
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-          onPressed: () => Navigator.of(context).pop(_succeeded),
+          onPressed: () => Navigator.of(context).pop(verified),
         ),
-        title: Text(_succeeded ? AppCopy.verifyDone : AppCopy.verifyTitle),
+        title: Text(verified ? AppCopy.verifyDone : AppCopy.verifyTitle),
       ),
       body: SafeArea(
         child: Padding(
@@ -66,10 +64,12 @@ class _A02VerifyScreenState extends ConsumerState<A02VerifyScreen> {
             AppSpacing.xl,
             AppSpacing.xl,
           ),
-          child: _succeeded ? _SuccessBody(onGo: _goSpark) : _PromptBody(
-            busy: _busy,
-            onConfirm: _confirm,
-          ),
+          child: verified
+              ? _SuccessBody(onGo: _goSpark)
+              : _PromptBody(
+                  busy: _busy,
+                  onConfirm: _confirm,
+                ),
         ),
       ),
     );

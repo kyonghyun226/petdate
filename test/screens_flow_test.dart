@@ -29,7 +29,7 @@ ProviderContainer _loggedIn({
   session.confirmGoal();
   session.completeProfile();
   if (verified) {
-    container.read(userDocProvider.notifier).applySnapshot(
+    container.read(userDocProvider.notifier).ingestListenSnapshot(
           verifiedAt: DateTime.utc(2026, 9, 8),
         );
   }

@@ -26,8 +26,8 @@ abstract final class IdentityVerification {
   /// (server timestamp). Success `{ uid, verifiedAt ISO }`. Idempotent if
   /// already set. `failed-precondition` if no user doc.
   ///
-  /// After the callable returns, **listen** the user doc — do not write
-  /// `verifiedAt` from the client. Mock: returns `true` only.
+  /// After the callable returns, unlock only via **listen/get** on the
+  /// user doc ([UserDocNotifier.pullRemoteUserDoc]). Mock: returns `true`.
   static Future<bool> requestMarkVerified({String? uid}) async {
     assert(() {
       debugPrint(
