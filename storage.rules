@@ -1,0 +1,14 @@
+rules_version = '2';
+
+// Minimal Storage stub. Photo upload / CDN pipeline is follow-up.
+// Intended object layout (not enabled yet):
+//   pets/{uid}/{fileName}  — owner write, authenticated read
+// Do not open test-mode write. Deny everything until the media PR.
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

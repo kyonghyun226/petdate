@@ -1,0 +1,632 @@
+rules_version = '2';
+
+// ===============================================================
+// 반짝산책 (petdate) — official MVP Firestore contract
+// Project: petdatinglove
+// Source: product-planner schema (prefer this over mock UI types)
+//
+// Identity: Firebase Auth uid (Google / Apple). Unauthenticated
+// access is denied. Unknown paths hit match /{document=**} deny.
+// No test-mode `allow read, write: if true`.
+//
+// PII split: users/{uid} is owner-only. Explore uses pets, which
+// must not store email, phone, street address, or legal name.
+// Location is geohash + approximate latlng only.
+//
+// MVP: 1 pet per account. Doc id pets/{petId} == ownerId == uid
+// so uniqueness is structural (no Cloud Function needed).
+//
+// users.verifiedAt is NOT client-writable (Admin SDK / later
+// adult-ID Function). Likes and match creates require it.
+//
+// Block filtering is NOT encoded in rules. A blocked neighbor in a
+// pet list would fail the whole query (rules are not filters), and
+// like/match creates skip exists(blocks) so the 10 get/exists
+// budget can cover verifiedAt + pet ownership + mutual likes.
+// Filter blockedIds in the app or a Cloud Function feed.
+//
+// Timestamps: FieldValue.serverTimestamp() for createdAt /
+// updatedAt. Rules compare to request.time.
+//
+// Query shapes the client MUST use (rules are not filters):
+//   pets:            any signed-in list (explore)
+//   likes:           fromUid == me  OR  toOwnerId == me
+//   matches:         userIds array-contains me
+//   threads:         get by matchId (same id as matches)
+//   meetProposals:   matchId == {matchId}
+//   blocks:          blockerId == me
+//   reports:         no client read (Admin SDK only)
+// ===============================================================
+//
+// Collection: users
+// Document ID: {uid} == request.auth.uid
+// Fields:
+//   - goal: 'friend' | 'walk' (required)
+//   - searchRadiusKm: number 1–50 (required; app default 5)
+//   - createdAt: timestamp (required, immutable, == request.time
+//     on create)
+//   - displayName: string 1–40 (optional, P1)
+//   - verifiedAt: timestamp (optional). Client cannot create or
+//     change this field. Admin SDK sets it after verification.
+//
+// Collection: pets
+// Document ID: {petId} == ownerId == auth.uid (1 pet / user)
+// Fields:
+//   - ownerId: string (required, immutable, == petId == auth.uid)
+//   - name: string 1–40
+//   - species: 'dog' | 'cat'
+//   - breed: string 1–40
+//   - age: int 0–40
+//   - sex: 'male' | 'female'
+//   - size: 'small' | 'medium' | 'large'
+//   - photos: list<string> 1–3 Storage paths pets/{petId}/{file}
+//   - tags: list 3–8, each a key from the fixed 12-tag set
+//   - bio: string 0–140
+//   - preferredTimeSlots: list 1–3 of weekdayEvening |
+//     weekendMorning | weekendAfternoon
+//   - geohash: string 1–12 (optional; required if latlng set)
+//   - latlng: geopoint, approximate (optional; required if geohash)
+//   - updatedAt: timestamp == request.time on write
+// Read: any signed-in user (explore). Write: owner only.
+// Write a complete card (no draft docs) — incomplete pets would
+// still be listable by every signed-in user.
+//
+// Collection: likes
+// Document ID: {fromUid}_{toPetId}
+// Fields: fromUid, toPetId, toOwnerId, createdAt
+// Create/read: fromUid == auth.uid. Recipient read: toOwnerId ==
+// auth.uid. Delete: fromUid only. No update.
+// Create also requires users/{fromUid}.verifiedAt and the target
+// pet to exist with ownerId == toOwnerId. fromUid != toOwnerId.
+//
+// Collection: matches
+// Document ID: {minUid}_{maxUid} (sorted userIds)
+// Fields:
+//   - userIds: [minUid, maxUid] exactly 2, sorted
+//   - petIds: [pet of userIds[0], pet of userIds[1]]
+//   - createdAt: timestamp
+// Create: requester in userIds, both users verified, mutual likes
+//   after the batch (A→petB and B→petA), both pets owned as above.
+// Read: participants. No client update/delete.
+//
+// Collection: threads
+// Document ID: {matchId} (same as matches/{matchId})
+// Fields: lastMessage (string 0–1000), updatedAt
+// Create/update/read: match members only. Create requires the
+// match doc to exist after the batch.
+//
+// Subcollection: threads/{matchId}/messages/{msgId}
+// Fields: senderId, text, type ('text' | 'meet_proposal'), createdAt
+// Read/create: match members. senderId == auth.uid. Immutable.
+//
+// Collection: meetProposals
+// Document ID: auto-id
+// Fields:
+//   - matchId, fromUid
+//   - placeType: 'park' | 'petCafe' | 'other'
+//   - timeSlot: string 1–80
+//   - status: 'pending' | 'accepted' | 'counter' | 'dismissed'
+// Create: fromUid == auth, member of match, status pending.
+// Update: members only.
+//   pending + fromUid → dismissed
+//   pending + other → accepted | counter | dismissed
+//   counter may change placeType/timeSlot; other transitions
+//   leave those fields unchanged. Terminal statuses are frozen.
+//
+// Collection: blocks
+// Document ID: {blockerId}_{blockedId}
+// Fields: blockerId, blockedId
+// Create/read/delete: blockerId == auth.uid. No update. No
+// self-block. Blocked user cannot read the block doc.
+//
+// Collection: reports
+// Document ID: auto-id
+// Fields: reporterId, targetType, targetId, reason, createdAt
+//   targetType: 'user' | 'pet' | 'thread' | 'message' | 'meetProposal'
+//   reason: 'spam' | 'harassment' | 'fake' | 'inappropriate' |
+//           'safety' | 'other'
+// Create: reporterId == auth.uid. No client read/update/delete
+// (Admin SDK only).
+//
+// Fixed 12 walk/cafe tags (keys; labels live in the app):
+//   walk_lover, cafe_lover, night_active, nap_lover,
+//   careful_with_strangers, social_butterfly, quiet_meetups,
+//   park_lover, indoor, weekend_morning, after_work_walk,
+//   travel_mate
+// ===============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.uid;
+    }
+
+    function uidUnchanged() {
+      return !('uid' in request.resource.data) ||
+        request.resource.data.uid == request.auth.uid;
+    }
+
+    function uidNotModified() {
+      return !('uid' in request.resource.data) ||
+        request.resource.data.uid == resource.data.uid;
+    }
+
+    function isValidUid(value) {
+      return value is string && value.size() >= 16 && value.size() <= 128;
+    }
+
+    function isServerNow(value) {
+      return value is timestamp && value == request.time;
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function areImmutableFieldsUnchanged(fields) {
+      return !request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny(fields);
+    }
+
+    function validStringLength(field, minLen, maxLen) {
+      return request.resource.data[field] is string
+        && request.resource.data[field].size() >= minLen
+        && request.resource.data[field].size() <= maxLen;
+    }
+
+    function isBoundedString(value, maxLen) {
+      return value is string && value.size() <= maxLen;
+    }
+
+    function isNonEmptyString(value, maxLen) {
+      return value is string && value.size() > 0 && value.size() <= maxLen;
+    }
+
+    function isGoal(value) {
+      return value in ['friend', 'walk'];
+    }
+
+    function userPath(uid) {
+      return /databases/$(database)/documents/users/$(uid);
+    }
+
+    function petPath(petId) {
+      return /databases/$(database)/documents/pets/$(petId);
+    }
+
+    function likePath(fromUid, toPetId) {
+      return /databases/$(database)/documents/likes/$(fromUid + '_' + toPetId);
+    }
+
+    function matchPath(matchId) {
+      return /databases/$(database)/documents/matches/$(matchId);
+    }
+
+    function blockPath(a, b) {
+      return /databases/$(database)/documents/blocks/$(a + '_' + b);
+    }
+
+    function isVerified(uid) {
+      return get(userPath(uid)).data.verifiedAt is timestamp;
+    }
+
+    function isEitherBlocked(a, b) {
+      return exists(blockPath(a, b)) || exists(blockPath(b, a));
+    }
+
+    function isMatchMember(matchId) {
+      return isAuthenticated()
+        && exists(matchPath(matchId))
+        && request.auth.uid in get(matchPath(matchId)).data.userIds;
+    }
+
+    function isAllowedTag(item) {
+      return item in [
+        'walk_lover', 'cafe_lover', 'night_active', 'nap_lover',
+        'careful_with_strangers', 'social_butterfly', 'quiet_meetups',
+        'park_lover', 'indoor', 'weekend_morning', 'after_work_walk',
+        'travel_mate'
+      ];
+    }
+
+    function validTags(tags) {
+      return tags is list
+        && tags.size() >= 3
+        && tags.size() <= 8
+        && isAllowedTag(tags[0])
+        && isAllowedTag(tags[1])
+        && isAllowedTag(tags[2])
+        && (tags.size() < 4 || isAllowedTag(tags[3]))
+        && (tags.size() < 5 || isAllowedTag(tags[4]))
+        && (tags.size() < 6 || isAllowedTag(tags[5]))
+        && (tags.size() < 7 || isAllowedTag(tags[6]))
+        && (tags.size() < 8 || isAllowedTag(tags[7]));
+    }
+
+    function isTimeSlot(item) {
+      return item in [
+        'weekdayEvening', 'weekendMorning', 'weekendAfternoon'
+      ];
+    }
+
+    function validTimeSlots(slots) {
+      return slots is list
+        && slots.size() >= 1
+        && slots.size() <= 3
+        && isTimeSlot(slots[0])
+        && (slots.size() < 2 || isTimeSlot(slots[1]))
+        && (slots.size() < 3 || isTimeSlot(slots[2]));
+    }
+
+    function validPhoto(petId, item) {
+      let parts = item is string ? item.split('/') : [];
+      return item is string
+        && item.size() >= 1
+        && item.size() <= 256
+        && parts.size() == 3
+        && parts[0] == 'pets'
+        && parts[1] == petId
+        && parts[2].size() >= 1
+        && parts[2].size() <= 128;
+    }
+
+    function validPhotos(petId, photos) {
+      return photos is list
+        && photos.size() >= 1
+        && photos.size() <= 3
+        && validPhoto(petId, photos[0])
+        && (photos.size() < 2 || validPhoto(petId, photos[1]))
+        && (photos.size() < 3 || validPhoto(petId, photos[2]));
+    }
+
+    function optionalGeo(data) {
+      return (
+          !('geohash' in data) && !('latlng' in data)
+        ) || (
+          data.latlng is latlng
+          && data.geohash is string
+          && data.geohash.size() >= 1
+          && data.geohash.size() <= 12
+        );
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasOnly([
+          'goal', 'searchRadiusKm', 'createdAt',
+          'displayName', 'verifiedAt'
+        ])
+        && data.keys().hasAll(['goal', 'searchRadiusKm', 'createdAt'])
+        && isGoal(data.goal)
+        && data.searchRadiusKm is number
+        && data.searchRadiusKm >= 1
+        && data.searchRadiusKm <= 50
+        && data.createdAt is timestamp
+        && (!('displayName' in data)
+            || isNonEmptyString(data.displayName, 40));
+    }
+
+    function isValidPet(data, petId) {
+      return data.keys().hasOnly([
+          'ownerId', 'name', 'species', 'breed', 'age', 'sex', 'size',
+          'photos', 'tags', 'bio', 'preferredTimeSlots',
+          'geohash', 'latlng', 'updatedAt'
+        ])
+        && data.keys().hasAll([
+          'ownerId', 'name', 'species', 'breed', 'age', 'sex', 'size',
+          'photos', 'tags', 'bio', 'preferredTimeSlots', 'updatedAt'
+        ])
+        && isValidUid(data.ownerId)
+        && data.ownerId == request.auth.uid
+        && data.ownerId == petId
+        && isNonEmptyString(data.name, 40)
+        && data.species in ['dog', 'cat']
+        && isNonEmptyString(data.breed, 40)
+        && data.age is int
+        && data.age >= 0
+        && data.age <= 40
+        && data.sex in ['male', 'female']
+        && data.size in ['small', 'medium', 'large']
+        && isBoundedString(data.bio, 140)
+        && data.updatedAt is timestamp
+        && validTags(data.tags)
+        && validTimeSlots(data.preferredTimeSlots)
+        && validPhotos(petId, data.photos)
+        && optionalGeo(data);
+    }
+
+    function isValidLike(data) {
+      return data.keys().hasOnly([
+          'fromUid', 'toPetId', 'toOwnerId', 'createdAt'
+        ])
+        && isValidUid(data.fromUid)
+        && isValidUid(data.toPetId)
+        && isValidUid(data.toOwnerId)
+        && data.fromUid == request.auth.uid
+        && data.fromUid != data.toOwnerId
+        && data.createdAt is timestamp;
+    }
+
+    function isValidMatch(data) {
+      return data.keys().hasOnly(['userIds', 'petIds', 'createdAt'])
+        && data.userIds is list
+        && data.userIds.size() == 2
+        && isValidUid(data.userIds[0])
+        && isValidUid(data.userIds[1])
+        && data.userIds[0] < data.userIds[1]
+        && data.petIds is list
+        && data.petIds.size() == 2
+        && isValidUid(data.petIds[0])
+        && isValidUid(data.petIds[1])
+        && data.petIds[0] != data.petIds[1]
+        && data.createdAt is timestamp;
+    }
+
+    function isValidThread(data) {
+      return data.keys().hasOnly(['lastMessage', 'updatedAt'])
+        && isBoundedString(data.lastMessage, 1000)
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidMessage(data) {
+      return data.keys().hasOnly(['senderId', 'text', 'type', 'createdAt'])
+        && data.senderId == request.auth.uid
+        && isValidUid(data.senderId)
+        && data.type in ['text', 'meet_proposal']
+        && isNonEmptyString(data.text, 1000)
+        && data.createdAt is timestamp;
+    }
+
+    function isValidMeetProposal(data) {
+      return data.keys().hasOnly([
+          'matchId', 'fromUid', 'placeType', 'timeSlot', 'status'
+        ])
+        && isNonEmptyString(data.matchId, 256)
+        && isValidUid(data.fromUid)
+        && data.placeType in ['park', 'petCafe', 'other']
+        && isNonEmptyString(data.timeSlot, 80)
+        && data.status in [
+          'pending', 'accepted', 'counter', 'dismissed'
+        ];
+    }
+
+    function isValidBlock(data) {
+      return data.keys().hasOnly(['blockerId', 'blockedId'])
+        && isValidUid(data.blockerId)
+        && isValidUid(data.blockedId)
+        && data.blockerId == request.auth.uid
+        && data.blockerId != data.blockedId;
+    }
+
+    function isValidReport(data) {
+      return data.keys().hasOnly([
+          'reporterId', 'targetType', 'targetId', 'reason', 'createdAt'
+        ])
+        && isValidUid(data.reporterId)
+        && data.reporterId == request.auth.uid
+        && isNonEmptyString(data.targetId, 256)
+        && data.targetType in [
+          'user', 'pet', 'thread', 'message', 'meetProposal'
+        ]
+        && data.reason in [
+          'spam', 'harassment', 'fake', 'inappropriate', 'safety', 'other'
+        ]
+        && data.createdAt is timestamp;
+    }
+
+    function validProposalTransition() {
+      let from = resource.data.status;
+      let to = request.resource.data.status;
+      let isFrom = request.auth.uid == resource.data.fromUid;
+      let isOther = isMatchMember(resource.data.matchId) && !isFrom;
+      let contentUnchanged = !request.resource.data.diff(resource.data)
+        .affectedKeys()
+        .hasAny(['placeType', 'timeSlot']);
+      return
+        (from == 'pending' && to == 'dismissed' && isFrom
+          && contentUnchanged)
+        || (from == 'pending' && to in ['accepted', 'dismissed']
+          && isOther && contentUnchanged)
+        || (from == 'pending' && to == 'counter' && isOther);
+    }
+
+    // -----------------------------------------------------------
+    // users/{uid}
+    // -----------------------------------------------------------
+
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+
+      allow create: if isOwner(userId)
+        && isValidUid(userId)
+        && isValidUser(request.resource.data)
+        && !('verifiedAt' in request.resource.data)
+        && isServerNow(request.resource.data.createdAt);
+
+      allow update: if isOwner(userId)
+        && isValidUser(request.resource.data)
+        && areImmutableFieldsUnchanged(['createdAt'])
+        && (
+          (!('verifiedAt' in resource.data)
+            && !('verifiedAt' in request.resource.data))
+          || (resource.data.verifiedAt == request.resource.data.verifiedAt)
+        );
+
+      allow delete: if isOwner(userId);
+    }
+
+    // -----------------------------------------------------------
+    // pets/{petId}
+    // -----------------------------------------------------------
+
+    match /pets/{petId} {
+      allow read: if isAuthenticated();
+
+      allow create: if isAuthenticated()
+        && isValidPet(request.resource.data, petId)
+        && isServerNow(request.resource.data.updatedAt);
+
+      allow update: if isOwner(resource.data.ownerId)
+        && isValidPet(request.resource.data, petId)
+        && areImmutableFieldsUnchanged(['ownerId'])
+        && isServerNow(request.resource.data.updatedAt);
+
+      allow delete: if isOwner(resource.data.ownerId);
+    }
+
+    // -----------------------------------------------------------
+    // likes/{fromUid}_{toPetId}
+    // -----------------------------------------------------------
+
+    match /likes/{likeId} {
+      allow read: if isAuthenticated()
+        && (request.auth.uid == resource.data.fromUid
+            || request.auth.uid == resource.data.toOwnerId);
+
+      allow create: if isAuthenticated()
+        && isVerified(request.auth.uid)
+        && isValidLike(request.resource.data)
+        && likeId == request.resource.data.fromUid + '_'
+            + request.resource.data.toPetId
+        && get(petPath(request.resource.data.toPetId)).data.ownerId
+            == request.resource.data.toOwnerId
+        && isServerNow(request.resource.data.createdAt);
+
+      allow update: if false;
+
+      allow delete: if isAuthenticated()
+        && request.auth.uid == resource.data.fromUid;
+    }
+
+    // -----------------------------------------------------------
+    // matches/{minUid}_{maxUid}
+    // -----------------------------------------------------------
+
+    match /matches/{matchId} {
+      allow read: if isAuthenticated()
+        && request.auth.uid in resource.data.userIds;
+
+      allow create: if isAuthenticated()
+        && isValidMatch(request.resource.data)
+        && matchId == request.resource.data.userIds[0] + '_'
+            + request.resource.data.userIds[1]
+        && request.auth.uid in request.resource.data.userIds
+        && isVerified(request.resource.data.userIds[0])
+        && isVerified(request.resource.data.userIds[1])
+        && get(petPath(request.resource.data.petIds[0])).data.ownerId
+            == request.resource.data.userIds[0]
+        && get(petPath(request.resource.data.petIds[1])).data.ownerId
+            == request.resource.data.userIds[1]
+        && existsAfter(likePath(
+            request.resource.data.userIds[0],
+            request.resource.data.petIds[1]))
+        && existsAfter(likePath(
+            request.resource.data.userIds[1],
+            request.resource.data.petIds[0]))
+        && isServerNow(request.resource.data.createdAt);
+
+      allow update, delete: if false;
+    }
+
+    // -----------------------------------------------------------
+    // threads/{matchId} + messages
+    // -----------------------------------------------------------
+
+    match /threads/{matchId} {
+      allow read: if isMatchMember(matchId)
+        || (isAuthenticated()
+            && existsAfter(matchPath(matchId))
+            && request.auth.uid in getAfter(matchPath(matchId)).data.userIds);
+
+      allow create: if isAuthenticated()
+        && existsAfter(matchPath(matchId))
+        && request.auth.uid in getAfter(matchPath(matchId)).data.userIds
+        && isValidThread(request.resource.data)
+        && isServerNow(request.resource.data.updatedAt);
+
+      allow update: if isMatchMember(matchId)
+        && isValidThread(request.resource.data)
+        && isServerNow(request.resource.data.updatedAt);
+
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        allow read: if isMatchMember(matchId);
+
+        allow create: if isMatchMember(matchId)
+          && isValidMessage(request.resource.data)
+          && request.resource.data.senderId in
+              get(matchPath(matchId)).data.userIds
+          && isServerNow(request.resource.data.createdAt);
+
+        allow update, delete: if false;
+      }
+    }
+
+    // -----------------------------------------------------------
+    // meetProposals/{id}
+    // -----------------------------------------------------------
+
+    match /meetProposals/{proposalId} {
+      allow read: if isMatchMember(resource.data.matchId);
+
+      allow create: if isAuthenticated()
+        && isValidMeetProposal(request.resource.data)
+        && request.resource.data.fromUid == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && isMatchMember(request.resource.data.matchId);
+
+      allow update: if isMatchMember(resource.data.matchId)
+        && isValidMeetProposal(request.resource.data)
+        && areImmutableFieldsUnchanged(['matchId', 'fromUid'])
+        && validProposalTransition();
+
+      allow delete: if false;
+    }
+
+    // -----------------------------------------------------------
+    // blocks / reports
+    // -----------------------------------------------------------
+
+    match /blocks/{blockId} {
+      allow read: if isAuthenticated()
+        && request.auth.uid == resource.data.blockerId;
+
+      allow create: if isAuthenticated()
+        && isValidBlock(request.resource.data)
+        && blockId == request.resource.data.blockerId + '_'
+            + request.resource.data.blockedId;
+
+      allow update: if false;
+
+      allow delete: if isAuthenticated()
+        && request.auth.uid == resource.data.blockerId;
+    }
+
+    match /reports/{reportId} {
+      allow read: if false;
+
+      allow create: if isAuthenticated()
+        && isValidReport(request.resource.data)
+        && isServerNow(request.resource.data.createdAt);
+
+      allow update, delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
