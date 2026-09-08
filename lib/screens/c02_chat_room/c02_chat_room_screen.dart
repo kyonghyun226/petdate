@@ -164,20 +164,22 @@ class _C02ChatRoomScreenState extends ConsumerState<C02ChatRoomScreen> {
           if (showChips)
             SizedBox(
               height: AppSizes.templateChipHeight,
-              child: ListView.separated(
+              child: SingleChildScrollView(
                 key: const ValueKey('first-message-chips'),
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-                itemCount: chips.length,
-                separatorBuilder: (_, _) =>
-                    const SizedBox(width: AppSpacing.sm),
-                itemBuilder: (context, i) {
-                  return TemplateChip(
-                    key: ValueKey('first-message-chip-$i'),
-                    label: chips[i],
-                    onTap: () => _insertTemplate(chips[i]),
-                  );
-                },
+                child: Row(
+                  children: [
+                    for (var i = 0; i < chips.length; i++) ...[
+                      if (i > 0) const SizedBox(width: AppSpacing.sm),
+                      TemplateChip(
+                        key: ValueKey('first-message-chip-$i'),
+                        label: chips[i],
+                        onTap: () => _insertTemplate(chips[i]),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
           Padding(

@@ -142,11 +142,11 @@ void main() {
       UserGoal.walk,
       AppCopy.fallbackPetName,
     );
-    expect(find.text(chips[0]), findsOneWidget);
-    expect(find.text(chips[1]), findsOneWidget);
-    expect(find.text(chips[2]), findsOneWidget);
+    expect(find.byKey(const ValueKey('first-message-chip-0')), findsOneWidget);
+    expect(find.byKey(const ValueKey('first-message-chip-1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('first-message-chip-2')), findsOneWidget);
 
-    await tester.tap(find.text(chips[1]));
+    await tester.tap(find.byKey(const ValueKey('first-message-chip-1')));
     await tester.pump();
     expect(
       tester
@@ -167,9 +167,15 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('meetup-propose-chip')));
     await tester.pumpAndSettle();
     expect(find.text(AppCopy.meetupWalkTitle), findsOneWidget);
-    expect(find.text(AppCopy.meetupTonight), findsOneWidget);
-    expect(find.text(AppCopy.meetupThisWeekend), findsOneWidget);
-    expect(find.text(AppCopy.meetupPickDateTime), findsOneWidget);
+    expect(find.byKey(ValueKey('meetup-time-${AppCopy.meetupTonight}')), findsOneWidget);
+    expect(
+      find.byKey(ValueKey('meetup-time-${AppCopy.meetupThisWeekend}')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(ValueKey('meetup-time-${AppCopy.meetupPickDateTime}')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('C03 send and inbound CTAs track meet KPIs', (tester) async {
