@@ -34,6 +34,7 @@ abstract final class IdentityContract {
   static const meetProposalsCollection = 'meetProposals';
   static const blocksCollection = 'blocks';
   static const reportsCollection = 'reports';
+  static const fcmTokensCollection = 'fcmTokens';
   static const failedPrecondition = 'failed-precondition';
 }
 

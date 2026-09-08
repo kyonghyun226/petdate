@@ -42,9 +42,14 @@ Future<void> openChatRoom(
   DiscoveryProfile profile,
 ) {
   final thread = SparkActions.ensureChat(ref, profile);
+  return openChatRoomById(context, thread.id);
+}
+
+/// Push tap / deep link → C02. [threadId] is the match id.
+Future<void> openChatRoomById(BuildContext context, String threadId) {
   return Navigator.of(context).push(
     MaterialPageRoute<void>(
-      builder: (_) => C02ChatRoomScreen(threadId: thread.id),
+      builder: (_) => C02ChatRoomScreen(threadId: threadId),
     ),
   );
 }

@@ -89,6 +89,26 @@ FCM 토큰은 클라가 `users/{uid}/fcmTokens/{sha256(token)}`에 upsert하고,
 `onMeetProposalUpdated`가 Admin FCM으로 보냅니다. 계약은
 [`functions/README.md`](functions/README.md) FCM 절을 따릅니다.
 
+## 푸시 (P1) — 클라
+
+알림 종류: **매칭 성공**, **새 메시지**, **만남 제안 수신**. 탭하면 `data.matchId`로 C02.
+권한은 **첫 M01 매칭 직후**에만 묻고, 온보딩/가입 직후는 묻지 않습니다. 거절은 비블로킹.
+미인증(`verifiedAt` 없음)이면 토큰을 쓰지 않습니다. Auth 없으면 no-op.
+차단된 스레드는 C02에서 멤버 전용으로 막습니다. **`verifiedAt` 클라 write 없음.**
+
+토큰 경로 (인프라 계약):
+
+```
+users/{uid}/fcmTokens/{tokenHash}
+  tokenHash = sha256 hex of token (64 lowercase [a-f0-9])
+  token: string 32–4096
+  platform: 'ios' | 'android'
+  updatedAt: serverTimestamp()
+```
+
+로그인 후(권한 허용된 경우) upsert, 로그아웃 시 같은 문서 delete.
+페이로드: `{ type: match | message | meet_proposal, matchId }` (+ 제안 시 `proposalId`, `status`).
+
 ## 남은 콘솔 / 설정 체크리스트
 
 코드만으로는 끝나지 않는 항목입니다. 프로젝트 `petdatinglove`.
@@ -112,6 +132,22 @@ FCM 토큰은 클라가 `users/{uid}/fcmTokens/{sha256(token)}`에 upsert하고,
 - [ ] Blaze 플랜 (Functions 2nd gen)
 - [ ] Storage 사진 업로드는 아직 deny-all. 펫 문서는 `pets/{uid}/photo_*` **경로 문자열**만 저장합니다. 미디어 PR 전까지 UI는 placeholder seed입니다.
 - [ ] (선택) 탐색용 대략 위치: `pets.geohash` + `latlng` — 없으면 반경 필터 없이 목록
+
+### APNs / FCM 콘솔 (푸시 P1)
+
+코드만으로는 실기기 수신이 끝나지 않습니다. 프로젝트 `petdatinglove`.
+
+- [ ] [Cloud Messaging](https://console.firebase.google.com/project/petdatinglove/settings/cloudmessaging) → **Cloud Messaging API (V1)** 사용 설정
+- [ ] iOS: Apple Developer App ID `kr.mooca.petdate`에 **Push Notifications**
+- [ ] iOS: Xcode Signing & Capabilities에 Push Notifications (저장소 `Runner.entitlements`의 `aps-environment`는 development — 배포 프로필은 production)
+- [ ] iOS: APNs Authentication Key (`.p8`)를 Firebase Cloud Messaging에 업로드 (Key ID + Team ID)
+- [ ] iOS: `GoogleService-Info.plist`가 최신 App ID와 맞는지
+- [ ] Android: `android/app/google-services.json`이 `kr.mooca.petdate`와 맞는지
+- [ ] Android 13+: `POST_NOTIFICATIONS` (매니페스트에 추가됨). 채널 id `banjjak_news` — 프로덕션 발송 전에 채널 생성
+- [ ] Firestore rules deploy (`users/{uid}/fcmTokens/{sha256}` owner CRUD — #12)
+- [ ] Functions live: `onMessageCreated` / `onMatchCreated` / `onMeetProposalCreated` / `onMeetProposalUpdated`
+- [ ] 실기기: 첫 매칭(M01) → 「반짝 소식 받으실래요?」→ OS 다이얼로그 → 백그라운드 푸시 탭 → C02
+- [ ] 실기기: 권한 거절 후에도 채팅 가능, Y01 설정 「알림 켜기」가 앱 알림 설정으로 이동
 
 ### App Check / 실기기
 

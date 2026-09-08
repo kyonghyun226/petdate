@@ -177,6 +177,7 @@ describe('petdate official MVP firestore.rules', () => {
         }),
       );
     });
+
   });
 
   describe('pets/{petId}', () => {

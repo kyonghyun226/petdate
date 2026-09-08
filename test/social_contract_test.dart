@@ -44,6 +44,7 @@ void main() {
     expect(IdentityContract.meetProposalsCollection, 'meetProposals');
     expect(IdentityContract.blocksCollection, 'blocks');
     expect(IdentityContract.reportsCollection, 'reports');
+    expect(IdentityContract.fcmTokensCollection, 'fcmTokens');
     expect(IdentityContract.functionsRegion, 'asia-northeast3');
     expect(IdentityContract.markUserVerifiedCallable, 'markUserVerified');
     expect(IdentityContract.verifiedAtField, 'verifiedAt');
