@@ -8,37 +8,50 @@ class PrimaryButton extends StatelessWidget {
     this.onPressed,
     this.expand = true,
     this.dimmed = false,
+    this.icon,
   });
 
   final String label;
   final VoidCallback? onPressed;
   final bool expand;
   final bool dimmed;
+  final IconData? icon;
 
   @override
   Widget build(BuildContext context) {
+    final style = FilledButton.styleFrom(
+      backgroundColor: dimmed
+          ? AppColors.primary.withValues(alpha: 0.35)
+          : AppColors.primary,
+      foregroundColor: dimmed
+          ? AppColors.onPrimary.withValues(alpha: 0.8)
+          : AppColors.onPrimary,
+      disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.35),
+      disabledForegroundColor: AppColors.onPrimary.withValues(alpha: 0.8),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.button),
+      ),
+      textStyle: AppTypography.button.copyWith(color: AppColors.onPrimary),
+    );
+
+    final button = icon == null
+        ? FilledButton(
+            onPressed: onPressed,
+            style: style,
+            child: Text(label),
+          )
+        : FilledButton.icon(
+            onPressed: onPressed,
+            style: style,
+            icon: Icon(icon, size: 20),
+            label: Text(label),
+          );
+
     return SizedBox(
       width: expand ? double.infinity : null,
       height: AppSizes.buttonHeight,
-      child: FilledButton(
-        onPressed: onPressed,
-        style: FilledButton.styleFrom(
-          backgroundColor: dimmed
-              ? AppColors.primary.withValues(alpha: 0.35)
-              : AppColors.primary,
-          foregroundColor: dimmed
-              ? AppColors.onPrimary.withValues(alpha: 0.8)
-              : AppColors.onPrimary,
-          disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.35),
-          disabledForegroundColor: AppColors.onPrimary.withValues(alpha: 0.8),
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadius.button),
-          ),
-          textStyle: AppTypography.button.copyWith(color: AppColors.onPrimary),
-        ),
-        child: Text(label),
-      ),
+      child: button,
     );
   }
 }

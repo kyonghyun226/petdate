@@ -79,6 +79,65 @@ void main() {
     expect(find.textContaining('콩이'), findsWidgets);
   });
 
+  testWidgets('H01 and D01 like CTAs use sparkle not heart or paw',
+      (tester) async {
+    final container = _loggedIn();
+    addTearDown(container.dispose);
+    await _pumpMain(tester, container);
+
+    final like = find.byKey(const ValueKey('like-button'));
+    expect(
+      find.descendant(of: like, matching: find.byIcon(AppIcons.spark)),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: like, matching: find.byIcon(Icons.favorite)),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: like, matching: find.byIcon(Icons.favorite_rounded)),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: like, matching: find.byIcon(Icons.pets)),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: like, matching: find.byIcon(Icons.pets_rounded)),
+      findsNothing,
+    );
+
+    final passMaterial = tester.widget<Material>(
+      find.descendant(
+        of: find.byKey(const ValueKey('pass-button')),
+        matching: find.byType(Material),
+      ).first,
+    );
+    final passShape = passMaterial.shape as CircleBorder;
+    expect(passShape.side.color, AppColors.border);
+    expect(passShape.side.width, 1.5);
+
+    await tester.tap(find.byKey(const ValueKey('home-card-kong')));
+    await tester.pumpAndSettle();
+    final d01 = find.byKey(const ValueKey('d01-cta'));
+    expect(
+      find.descendant(of: d01, matching: find.byIcon(AppIcons.spark)),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: d01, matching: find.byIcon(Icons.favorite)),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: d01, matching: find.byIcon(Icons.pets)),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: d01, matching: find.byIcon(Icons.pets_rounded)),
+      findsNothing,
+    );
+  });
+
   testWidgets('H01 tap opens D01 and CTA matches', (tester) async {
     final container = _loggedIn();
     addTearDown(container.dispose);
@@ -312,6 +371,7 @@ void main() {
   test('H01 layout tokens match checklist', () {
     expect(AppColors.bg, const Color(0xFFFFFFFF));
     expect(AppConstants.searchRadiusKm, 5);
+    expect(AppIcons.spark, Icons.auto_awesome);
     expect(AppSizes.passFab, 56);
     expect(AppSizes.likeFab, 64);
     expect(AppSizes.fabGap, 24);

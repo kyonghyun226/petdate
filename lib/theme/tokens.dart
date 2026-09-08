@@ -36,6 +36,11 @@ abstract final class AppRadius {
   static const double input = 16;
 }
 
+/// Brand sparkle (✦) for like / 반짝 CTAs. Never heart or paw.
+abstract final class AppIcons {
+  static const IconData spark = Icons.auto_awesome;
+}
+
 abstract final class AppSizes {
   static const double buttonHeight = 52;
   static const double tabBarHeight = 64;

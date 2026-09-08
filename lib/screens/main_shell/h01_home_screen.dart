@@ -193,7 +193,7 @@ class _PassLikeFabs extends ConsumerWidget {
               size: AppSizes.likeFab,
               filled: true,
               dimmed: !verified,
-              icon: Icons.auto_awesome,
+              icon: AppIcons.spark,
               tooltip: verified ? AppCopy.likeTooltip : AppCopy.likeNeedsVerify,
               onTap: () {
                 if (!verified) {
