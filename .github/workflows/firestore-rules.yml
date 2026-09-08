@@ -1,0 +1,71 @@
+# Optional Firestore security-rules tests.
+# Uses the local emulator only — no Firebase service-account secrets.
+# Skipped automatically when the triggering event does not touch rules
+# files (path filters below). Re-run anytime via workflow_dispatch.
+
+name: Firestore rules
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - firestore.rules
+      - storage.rules
+      - firebase.json
+      - firebase/rules-tests/**
+      - .github/workflows/firestore-rules.yml
+  pull_request:
+    branches: [main]
+    paths:
+      - firestore.rules
+      - storage.rules
+      - firebase.json
+      - firebase/rules-tests/**
+      - .github/workflows/firestore-rules.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: firestore-rules-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rules:
+    name: Emulator unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: firebase/rules-tests/package-lock.json
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Cache Firebase emulators
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/firebase/emulators
+          key: firebase-emulators-${{ runner.os }}
+
+      - name: Install rules-test dependencies
+        run: npm ci
+        working-directory: firebase/rules-tests
+
+      - name: Run rules tests against the Firestore emulator
+        run: >
+          npx --yes firebase-tools@latest emulators:exec
+          --only firestore
+          --project petdatinglove
+          "npm test --prefix firebase/rules-tests"

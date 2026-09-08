@@ -1,0 +1,60 @@
+# petdate (반짝산책) — Flutter CI
+#
+# Pinned to Flutter 3.47.2 (same SDK that created this repo; Dart 3.13.2,
+# matching pubspec.yaml environment.sdk: ^3.13.2).
+#
+# Widget/unit tests in test/ do not initialize Firebase and do not need
+# emulators or service-account secrets.
+#
+# Store signing / internal iOS & Android builds are intentionally not here.
+# See .github/ci.md for follow-up.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FLUTTER_VERSION: "3.47.2"
+
+jobs:
+  flutter:
+    name: Analyze and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - name: Flutter version
+        run: flutter --version
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Check formatting
+        run: dart format --output=none --set-exit-if-changed lib test
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test
