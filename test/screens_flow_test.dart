@@ -7,12 +7,16 @@ import 'package:petdate/copy/app_copy.dart';
 import 'package:petdate/models/pet_tag.dart';
 import 'package:petdate/models/preferred_time.dart';
 import 'package:petdate/copy/species_copy.dart';
+import 'package:petdate/firebase/identity_contract.dart';
 import 'package:petdate/state/analytics_provider.dart';
 import 'package:petdate/state/profile_provider.dart';
 import 'package:petdate/state/session_provider.dart';
 import 'package:petdate/theme/tokens.dart';
 
-ProviderContainer _loggedIn({UserGoal goal = UserGoal.friend}) {
+ProviderContainer _loggedIn({
+  UserGoal goal = UserGoal.friend,
+  bool verified = true,
+}) {
   final container = ProviderContainer();
   final session = container.read(sessionProvider.notifier);
   session.completeSplash();
@@ -21,6 +25,7 @@ ProviderContainer _loggedIn({UserGoal goal = UserGoal.friend}) {
   session.setGoal(goal);
   session.confirmGoal();
   session.completeProfile();
+  if (verified) session.mockVerifyIdentity();
   return container;
 }
 
@@ -314,6 +319,67 @@ void main() {
     expect(MeetKpi.proposalSent, 'meet_proposal_sent');
     expect(MeetKpi.proposalAccepted, 'meet_proposal_accepted');
     expect(MeetKpi.proposalCounter, 'meet_proposal_counter');
+    expect(IdentityContract.verifiedAtField, 'verifiedAt');
+    expect(IdentityContract.likesCollection, 'likes');
+    expect(IdentityContract.matchesCollection, 'matches');
+    expect(IdentityContract.confirmIdentityCallable, 'confirmIdentity');
+    expect(AppCopy.likeNeedsVerify, '인증 후 반짝할 수 있어요');
+  });
+
+  testWidgets('unverified like is gated to A02; pass still works', (tester) async {
+    final container = _loggedIn(verified: false);
+    addTearDown(container.dispose);
+    await _pumpMain(tester, container);
+
+    expect(container.read(sessionProvider).isVerified, isFalse);
+    expect(container.read(profileIsVerifiedProvider), isFalse);
+    expect(find.text(AppCopy.likeNeedsVerify), findsOneWidget);
+    expect(find.byKey(const ValueKey('home-card-kong')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('pass-button')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('home-card-bori')), findsOneWidget);
+    expect(find.text(AppCopy.verifyTitle), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('like-button')));
+    await tester.pumpAndSettle();
+    expect(find.text(AppCopy.verifyTitle), findsWidgets);
+    expect(find.text(AppCopy.verifyCta), findsOneWidget);
+
+    await tester.tap(find.text(AppCopy.verifyCta));
+    await tester.pumpAndSettle();
+    expect(container.read(sessionProvider).isVerified, isTrue);
+    expect(find.text(AppCopy.likeNeedsVerify), findsNothing);
+    expect(find.text(AppCopy.verifyTitle), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('like-button')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('home-card-bori')), findsNothing);
+    expect(find.text(AppCopy.matchTitle), findsNothing);
+  });
+
+  testWidgets('unverified D01 CTA opens A02 then restores friend CTA', (tester) async {
+    final container = _loggedIn(verified: false);
+    addTearDown(container.dispose);
+    await _pumpMain(tester, container);
+
+    await tester.tap(find.byKey(const ValueKey('home-card-kong')));
+    await tester.pumpAndSettle();
+    expect(find.text(AppCopy.likeNeedsVerify), findsWidgets);
+    expect(find.text(GoalCopy.detailCta(UserGoal.friend, '콩이')), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('d01-cta')));
+    await tester.pumpAndSettle();
+    expect(find.text(AppCopy.verifyCta), findsOneWidget);
+
+    await tester.tap(find.text(AppCopy.verifyCta));
+    await tester.pumpAndSettle();
+    expect(find.text(GoalCopy.detailCta(UserGoal.friend, '콩이')), findsOneWidget);
+    expect(find.text(AppCopy.likeNeedsVerify), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('d01-cta')));
+    await tester.pumpAndSettle();
+    expect(find.text(AppCopy.matchTitle), findsOneWidget);
   });
 
   test('P03 requires 3-8 tags and 1-3 time slots', () {

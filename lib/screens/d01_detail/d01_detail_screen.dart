@@ -2,12 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:petdate/copy/app_copy.dart';
 import 'package:petdate/copy/species_copy.dart';
-import 'package:petdate/flow/spark_actions.dart';
+import 'package:petdate/flow/app_nav.dart';
 import 'package:petdate/models/discovery_profile.dart';
 import 'package:petdate/models/pet_tag.dart';
-import 'package:petdate/screens/m01_match/m01_match_screen.dart';
 import 'package:petdate/screens/r01_report/r01_report_sheet.dart';
-import 'package:petdate/state/chat_provider.dart';
 import 'package:petdate/state/session_provider.dart';
 import 'package:petdate/theme/tokens.dart';
 import 'package:petdate/widgets/buttons.dart';
@@ -32,6 +30,7 @@ class _D01DetailScreenState extends ConsumerState<D01DetailScreen> {
   Widget build(BuildContext context) {
     final goal =
         ref.watch(sessionProvider.select((s) => s.goal)) ?? UserGoal.friend;
+    final verified = ref.watch(sessionProvider.select((s) => s.isVerified));
     final photos =
         profile.photoSeeds.isEmpty ? const [0] : profile.photoSeeds;
 
@@ -156,26 +155,21 @@ class _D01DetailScreenState extends ConsumerState<D01DetailScreen> {
                 ),
                 child: PrimaryButton(
                   key: const ValueKey('d01-cta'),
-                  label: GoalCopy.detailCta(goal, profile.name),
+                  dimmed: !verified,
+                  label: verified
+                      ? GoalCopy.detailCta(goal, profile.name)
+                      : AppCopy.likeNeedsVerify,
                   onPressed: () async {
-                    final matched = SparkActions.like(ref, profile);
-                    if (!context.mounted) return;
-                    if (matched) {
-                      final thread = ref
-                          .read(chatProvider.notifier)
-                          .ensureMatchThread(profile);
-                      await Navigator.of(context).pushReplacement(
-                        MaterialPageRoute<void>(
-                          fullscreenDialog: true,
-                          builder: (_) => M01MatchScreen(
-                            profile: profile,
-                            threadId: thread.id,
-                          ),
-                        ),
-                      );
-                    } else {
-                      Navigator.of(context).pop();
+                    if (!verified) {
+                      await openIdentityVerification(context);
+                      return;
                     }
+                    await likeAndMaybeMatch(
+                      context,
+                      ref,
+                      profile,
+                      fromDetail: true,
+                    );
                   },
                 ),
               ),

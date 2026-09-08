@@ -298,3 +298,12 @@ final profileDraftProvider =
     NotifierProvider<ProfileDraftNotifier, ProfileDraft>(
   ProfileDraftNotifier.new,
 );
+
+/// `users/{uid}.verifiedAt` mirror for profile surfaces (Y01).
+final profileVerifiedAtProvider = Provider<DateTime?>((ref) {
+  return ref.watch(sessionProvider.select((s) => s.verifiedAt));
+});
+
+final profileIsVerifiedProvider = Provider<bool>((ref) {
+  return ref.watch(sessionProvider.select((s) => s.isVerified));
+});

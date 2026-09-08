@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:petdate/copy/app_copy.dart';
 import 'package:petdate/copy/species_copy.dart';
+import 'package:petdate/flow/app_nav.dart';
 import 'package:petdate/models/pet_tag.dart';
 import 'package:petdate/screens/o01_goal/o01_goal_screen.dart';
 import 'package:petdate/screens/y01_settings/y01_settings_screen.dart';
@@ -17,6 +18,7 @@ class Y01MyScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final goal = ref.watch(sessionProvider.select((s) => s.goal));
     final draft = ref.watch(profileDraftProvider);
+    final verified = ref.watch(sessionProvider.select((s) => s.isVerified));
 
     return Scaffold(
       appBar: AppBar(
@@ -31,8 +33,18 @@ class Y01MyScreen extends ConsumerWidget {
           AppSpacing.xl,
         ),
         children: [
-          _PetSummaryCard(draft: draft, goal: goal),
+          _PetSummaryCard(draft: draft, goal: goal, verified: verified),
           const SizedBox(height: AppSpacing.xl),
+          _MenuTile(
+            icon: Icons.verified_user_outlined,
+            label: AppCopy.verifyTitle,
+            trailing: verified
+                ? AppCopy.verifyStatusVerified
+                : AppCopy.verifyStatusUnverified,
+            onTap: verified
+                ? () {}
+                : () => openIdentityVerification(context),
+          ),
           _MenuTile(
             icon: Icons.flag_outlined,
             label: AppCopy.myChangeGoal,
@@ -69,10 +81,15 @@ class Y01MyScreen extends ConsumerWidget {
 }
 
 class _PetSummaryCard extends StatelessWidget {
-  const _PetSummaryCard({required this.draft, required this.goal});
+  const _PetSummaryCard({
+    required this.draft,
+    required this.goal,
+    required this.verified,
+  });
 
   final ProfileDraft draft;
   final UserGoal? goal;
+  final bool verified;
 
   @override
   Widget build(BuildContext context) {
@@ -137,6 +154,16 @@ class _PetSummaryCard extends StatelessWidget {
                     style: AppTypography.caption,
                   ),
                 ],
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  verified
+                      ? AppCopy.verifyStatusVerified
+                      : AppCopy.verifyStatusUnverified,
+                  style: AppTypography.caption.copyWith(
+                    color: verified ? AppColors.secondary : AppColors.textMuted,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ],
             ),
           ),

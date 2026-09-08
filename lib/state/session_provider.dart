@@ -15,6 +15,8 @@ class AppSession {
     this.profileCompleted = false,
     this.goal,
     this.mainTab = MainTab.home,
+    this.uid,
+    this.verifiedAt,
   });
 
   final AppPhase phase;
@@ -23,6 +25,14 @@ class AppSession {
   final bool profileCompleted;
   final UserGoal? goal;
   final MainTab mainTab;
+
+  /// Mock `users/{uid}` document id. Real Auth uid lands here after Google/Apple.
+  final String? uid;
+
+  /// Mirror of `users/{uid}.verifiedAt`. Null = Firestore likes/match create deny.
+  final DateTime? verifiedAt;
+
+  bool get isVerified => verifiedAt != null;
 
   bool get showBottomNav => phase == AppPhase.main && isLoggedIn;
 
@@ -34,6 +44,10 @@ class AppSession {
     UserGoal? goal,
     bool clearGoal = false,
     MainTab? mainTab,
+    String? uid,
+    bool clearUid = false,
+    DateTime? verifiedAt,
+    bool clearVerifiedAt = false,
   }) {
     return AppSession(
       phase: phase ?? this.phase,
@@ -42,6 +56,8 @@ class AppSession {
       profileCompleted: profileCompleted ?? this.profileCompleted,
       goal: clearGoal ? null : (goal ?? this.goal),
       mainTab: mainTab ?? this.mainTab,
+      uid: clearUid ? null : (uid ?? this.uid),
+      verifiedAt: clearVerifiedAt ? null : (verifiedAt ?? this.verifiedAt),
     );
   }
 }
@@ -69,11 +85,27 @@ class SessionNotifier extends Notifier<AppSession> {
   }
 
   /// Mock social login. Real Google/Apple auth is out of scope.
+  ///
+  /// Does **not** set [AppSession.verifiedAt]. A02 / [applyVerifiedAt] must
+  /// run before likes/matches. See `IdentityContract`.
   void mockLogin() {
     state = state.copyWith(
       isLoggedIn: true,
       phase: AppPhase.goal,
+      uid: 'mock_uid',
+      clearVerifiedAt: true,
     );
+  }
+
+  /// Client-side mirror after callable `confirmIdentity` succeeds.
+  /// The users doc field itself is Admin-only (see `IdentityContract`).
+  void applyVerifiedAt(DateTime verifiedAt) {
+    state = state.copyWith(verifiedAt: verifiedAt.toUtc());
+  }
+
+  /// Test helper: mark the session as identity-verified.
+  void mockVerifyIdentity() {
+    applyVerifiedAt(DateTime.utc(2026, 9, 8));
   }
 
   void setGoal(UserGoal goal) {

@@ -131,6 +131,14 @@ abstract final class AppCopy {
 
   static const passTooltip = '패스';
   static const likeTooltip = '좋아요';
+  static const likeNeedsVerify = '인증 후 반짝할 수 있어요';
+
+  static const verifyTitle = '본인인증';
+  static const verifyBody = '반짝하려면 본인인증이 필요해요. 인증이 끝나면 친구 사귀기·같이 산책하기를 바로 이어갈 수 있어요.';
+  static const verifyCta = '인증하기';
+  static const verifyDone = '인증됐어요';
+  static const verifyStatusVerified = '인증됨';
+  static const verifyStatusUnverified = '미인증';
 
   static const reportMenu = '신고 · 차단';
   static const reportTitle = '이 프로필을 신고할까요?';

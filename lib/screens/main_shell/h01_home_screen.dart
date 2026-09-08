@@ -158,25 +158,49 @@ class _PassLikeFabs extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
+    final verified = ref.watch(sessionProvider.select((s) => s.isVerified));
+    return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        _RoundAction(
-          key: const ValueKey('pass-button'),
-          size: AppSizes.passFab,
-          filled: false,
-          icon: Icons.close_rounded,
-          tooltip: AppCopy.passTooltip,
-          onTap: () => SparkActions.pass(ref, profile),
-        ),
-        const SizedBox(width: AppSizes.fabGap),
-        _RoundAction(
-          key: const ValueKey('like-button'),
-          size: AppSizes.likeFab,
-          filled: true,
-          icon: Icons.auto_awesome,
-          tooltip: AppCopy.likeTooltip,
-          onTap: () => likeAndMaybeMatch(context, ref, profile),
+        if (!verified) ...[
+          Text(
+            AppCopy.likeNeedsVerify,
+            key: const ValueKey('like-needs-verify'),
+            style: AppTypography.caption.copyWith(
+              color: AppColors.primary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+        ],
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _RoundAction(
+              key: const ValueKey('pass-button'),
+              size: AppSizes.passFab,
+              filled: false,
+              icon: Icons.close_rounded,
+              tooltip: AppCopy.passTooltip,
+              onTap: () => SparkActions.pass(ref, profile),
+            ),
+            const SizedBox(width: AppSizes.fabGap),
+            _RoundAction(
+              key: const ValueKey('like-button'),
+              size: AppSizes.likeFab,
+              filled: true,
+              dimmed: !verified,
+              icon: Icons.auto_awesome,
+              tooltip: verified ? AppCopy.likeTooltip : AppCopy.likeNeedsVerify,
+              onTap: () {
+                if (!verified) {
+                  openIdentityVerification(context);
+                  return;
+                }
+                likeAndMaybeMatch(context, ref, profile);
+              },
+            ),
+          ],
         ),
       ],
     );
@@ -191,26 +215,41 @@ class _RoundAction extends StatelessWidget {
     required this.icon,
     required this.tooltip,
     required this.onTap,
+    this.dimmed = false,
   });
 
   final double size;
   final bool filled;
+  final bool dimmed;
   final IconData icon;
   final String tooltip;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final Color fill;
+    final Color iconColor;
+    if (!filled) {
+      fill = AppColors.surface;
+      iconColor = AppColors.text;
+    } else if (dimmed) {
+      fill = AppColors.primary.withValues(alpha: 0.35);
+      iconColor = AppColors.onPrimary.withValues(alpha: 0.8);
+    } else {
+      fill = AppColors.primary;
+      iconColor = AppColors.onPrimary;
+    }
+
     return Tooltip(
       message: tooltip,
       child: Material(
-        color: filled ? AppColors.primary : AppColors.surface,
+        color: fill,
         shape: CircleBorder(
           side: filled
               ? BorderSide.none
               : const BorderSide(color: AppColors.border, width: 1.5),
         ),
-        elevation: filled ? 3 : 1,
+        elevation: filled && !dimmed ? 3 : 1,
         shadowColor: Colors.black.withValues(alpha: 0.16),
         child: InkWell(
           customBorder: const CircleBorder(),
@@ -221,7 +260,7 @@ class _RoundAction extends StatelessWidget {
             child: Icon(
               icon,
               size: filled ? 28 : 24,
-              color: filled ? AppColors.onPrimary : AppColors.text,
+              color: iconColor,
             ),
           ),
         ),

@@ -2,9 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:petdate/flow/spark_actions.dart';
 import 'package:petdate/models/discovery_profile.dart';
+import 'package:petdate/screens/a02_verify/a02_verify_screen.dart';
 import 'package:petdate/screens/c02_chat_room/c02_chat_room_screen.dart';
 import 'package:petdate/screens/d01_detail/d01_detail_screen.dart';
 import 'package:petdate/screens/m01_match/m01_match_screen.dart';
+import 'package:petdate/state/session_provider.dart';
+
+Future<bool> openIdentityVerification(BuildContext context) async {
+  final result = await Navigator.of(context).push<bool>(
+    MaterialPageRoute<bool>(
+      builder: (_) => const A02VerifyScreen(),
+    ),
+  );
+  return result == true;
+}
 
 Future<void> openProfileDetail(
   BuildContext context,
@@ -56,6 +67,10 @@ Future<void> likeAndMaybeMatch(
   DiscoveryProfile profile, {
   bool fromDetail = false,
 }) async {
+  if (!ref.read(sessionProvider).isVerified) {
+    await openIdentityVerification(context);
+    return;
+  }
   final matched = SparkActions.like(ref, profile);
   if (matched) {
     if (!context.mounted) return;
