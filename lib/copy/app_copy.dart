@@ -10,21 +10,26 @@ abstract final class AppCopy {
   static const loginTerms =
       '계속하면 이용약관 및 개인정보 처리방침에 동의하는 것으로 볼게요.';
 
+  /// Play / App Store listing placeholders (not shown in-app).
+  static const storeSubtitle = '반려 친구 · 산책 메이트 찾기';
+  static const storeTagline =
+      '우리 반려견의 짝을 찾아요. 친구 사귀기부터 같이 산책하기까지.';
+
   static const onboardingStart = '시작하기';
   static const alreadyHaveAccount = '이미 계정 있어요';
 
   static const List<OnboardingPageCopy> onboardingPages = [
     OnboardingPageCopy(
-      title: '우리 반려도 친구가 필요해요',
-      body: '같은 동네에서 비슷한 반려를 만나\n가벼운 인사부터 시작해 보세요.',
+      title: '우리 반려의 짝을 찾아요',
+      body: '우리 아이랑 잘 맞는 친구, 같이 산책할 메이트를 반짝 만나보세요.',
     ),
     OnboardingPageCopy(
-      title: '좋아요로 반짝 인연을 만들어요',
-      body: '마음이 가면 반짝, 서로 반짝하면\n대화가 열려요.',
+      title: '친구 사귀기 · 같이 산책하기',
+      body: '원하는 목적만 고르면, 라이프스타일이 맞는 견주·묘주를 추천해 드려요.',
     ),
     OnboardingPageCopy(
-      title: '산책·카페에서 자연스럽게 만나요',
-      body: '보호자가 함께하는 만남으로\n우리 반려의 페이스에 맞춰요.',
+      title: '안전하게, 반짝',
+      body: '본인인증으로 시작하고, 불편하면 차단·신고도 바로. 준비됐으면 Google 또는 Apple로 시작해요.',
     ),
   ];
 

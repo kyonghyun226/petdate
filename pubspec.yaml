@@ -1,5 +1,5 @@
 name: petdate
-description: "반짝산책 — 펫 친구 · 산책 메이트"
+description: "반짝산책 — 반려 친구 · 산책 메이트 찾기. 우리 반려견의 짝을 찾아요. 친구 사귀기부터 같이 산책하기까지."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev

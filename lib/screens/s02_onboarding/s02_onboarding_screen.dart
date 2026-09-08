@@ -18,8 +18,8 @@ class _S02OnboardingScreenState extends ConsumerState<S02OnboardingScreen> {
 
   static const _icons = [
     Icons.pets_rounded,
-    Icons.auto_awesome,
-    Icons.park_outlined,
+    Icons.diversity_1_outlined,
+    Icons.verified_user_outlined,
   ];
 
   @override

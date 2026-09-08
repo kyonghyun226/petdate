@@ -15,7 +15,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1600));
     await tester.pumpAndSettle();
 
-    expect(find.text('우리 반려도 친구가 필요해요'), findsOneWidget);
+    expect(find.text(AppCopy.onboardingPages[0].title), findsOneWidget);
+    expect(find.text(AppCopy.onboardingPages[0].body), findsOneWidget);
     expect(find.text(AppCopy.onboardingStart), findsNothing);
     expect(find.text(AppCopy.next), findsOneWidget);
   });
@@ -29,7 +30,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text(AppCopy.next));
     await tester.pumpAndSettle();
-    expect(find.text('산책·카페에서 자연스럽게 만나요'), findsOneWidget);
+    expect(find.text(AppCopy.onboardingPages[2].title), findsOneWidget);
+    expect(find.text(AppCopy.onboardingPages[2].body), findsOneWidget);
 
     await tester.tap(find.text(AppCopy.onboardingStart));
     await tester.pumpAndSettle();
@@ -152,5 +154,20 @@ void main() {
     await tester.tap(find.text(AppCopy.navSpark));
     await tester.pumpAndSettle();
     expect(find.text(AppCopy.sparkEmpty), findsOneWidget);
+  });
+
+  test('store listing copy constants', () {
+    expect(AppCopy.appName, '반짝산책');
+    expect(AppCopy.storeSubtitle, '반려 친구 · 산책 메이트 찾기');
+    expect(
+      AppCopy.storeTagline,
+      '우리 반려견의 짝을 찾아요. 친구 사귀기부터 같이 산책하기까지.',
+    );
+    expect(AppCopy.onboardingPages, hasLength(3));
+    expect(AppCopy.onboardingPages[1].title, '친구 사귀기 · 같이 산책하기');
+    expect(
+      AppCopy.onboardingPages[1].body,
+      '원하는 목적만 고르면, 라이프스타일이 맞는 견주·묘주를 추천해 드려요.',
+    );
   });
 }

@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Petdate</string>
+	<string>반짝산책</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -15,7 +15,11 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>petdate</string>
+	<string>반짝산책</string>
+	<key>StoreSubtitle</key>
+	<string>반려 친구 · 산책 메이트 찾기</string>
+	<key>StoreTagline</key>
+	<string>우리 반려견의 짝을 찾아요. 친구 사귀기부터 같이 산책하기까지.</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
