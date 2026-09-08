@@ -95,7 +95,10 @@ class MockSocialRepository implements SocialRepository {
         ),
       );
     }
-    return items;
+    return [
+      for (final item in items)
+        if (!_blocked.contains(item.profile.id)) item,
+    ];
   }
 
   DiscoveryProfile? _profile(String id) {

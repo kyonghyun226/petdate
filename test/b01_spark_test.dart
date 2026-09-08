@@ -301,4 +301,29 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text(AppCopy.chatSystemMatch), findsOneWidget);
   });
+
+  testWidgets('R01 block removes the row from every B01 segment', (
+    tester,
+  ) async {
+    final container = _loggedIn();
+    addTearDown(container.dispose);
+    await _pumpMain(tester, container);
+    await _openSpark(tester);
+
+    await tester.tap(find.byKey(const ValueKey('spark-row-kong')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip(AppCopy.reportMenu));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(AppCopy.blockLabel));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('spark-row-kong')), findsNothing);
+    expect(
+      container
+          .read(sparkProvider)
+          .of(SparkBucket.received)
+          .any((e) => e.profile.id == 'kong'),
+      isFalse,
+    );
+  });
 }

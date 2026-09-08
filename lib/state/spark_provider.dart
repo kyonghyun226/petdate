@@ -15,15 +15,14 @@ class SparkState {
   final Set<String> blockedIds;
 
   List<SparkItem> of(SparkBucket bucket) => [
-        for (final item in items)
-          if (item.bucket == bucket && !blockedIds.contains(item.profile.id))
-            item,
-      ];
+    for (final item in items)
+      if (item.bucket == bucket && !blockedIds.contains(item.profile.id)) item,
+  ];
 
   int get unseenReceivedCount => [
-        for (final item in of(SparkBucket.received))
-          if (!item.seen) item,
-      ].length;
+    for (final item in of(SparkBucket.received))
+      if (!item.seen) item,
+  ].length;
 
   SparkItem? byProfile(String profileId) {
     for (final item in items) {
@@ -83,7 +82,8 @@ class SparkNotifier extends Notifier<SparkState> {
     var changed = false;
     final next = <SparkItem>[];
     for (final item in state.items) {
-      final visibleReceived = item.bucket == SparkBucket.received &&
+      final visibleReceived =
+          item.bucket == SparkBucket.received &&
           !item.seen &&
           !state.blockedIds.contains(item.profile.id);
       if (visibleReceived) {
@@ -114,7 +114,8 @@ class SparkNotifier extends Notifier<SparkState> {
       items: [
         for (final item in items)
           item.copyWith(
-            seen: prev[item.profile.id]?.seen ??
+            seen:
+                prev[item.profile.id]?.seen ??
                 item.bucket != SparkBucket.received,
             createdAt: prev[item.profile.id]?.createdAt ?? item.createdAt,
           ),
