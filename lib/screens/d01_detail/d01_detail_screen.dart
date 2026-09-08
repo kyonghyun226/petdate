@@ -165,6 +165,7 @@ class _D01DetailScreenState extends ConsumerState<D01DetailScreen> {
                 child: PrimaryButton(
                   key: const ValueKey('d01-cta'),
                   dimmed: !verified,
+                  icon: AppIcons.spark,
                   // Same sticky slot: stream unlock swaps copy in place.
                   label: verified
                       ? GoalCopy.detailCta(goal, profile.name)
