@@ -74,7 +74,7 @@ class Y01MyScreen extends ConsumerWidget {
             icon: Icons.logout_rounded,
             label: AppCopy.myLogout,
             danger: true,
-            onTap: () => ref.read(sessionProvider.notifier).logout(),
+            onTap: () => ref.read(sessionProvider.notifier).signOut(),
           ),
         ],
       ),

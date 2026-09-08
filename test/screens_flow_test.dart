@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:petdate/app.dart';
+import 'package:petdate/auth/auth_repository.dart';
 import 'package:petdate/constants/app_constants.dart';
 import 'package:petdate/copy/app_copy.dart';
 import 'package:petdate/models/pet_tag.dart';
@@ -17,15 +18,25 @@ import 'package:petdate/state/session_provider.dart';
 import 'package:petdate/state/user_doc_provider.dart';
 import 'package:petdate/theme/tokens.dart';
 
+import 'helpers/fake_auth_repository.dart';
+
 ProviderContainer _loggedIn({
   UserGoal goal = UserGoal.friend,
   bool verified = true,
 }) {
-  final container = ProviderContainer();
+  final container = ProviderContainer(
+    overrides: [
+      authRepositoryProvider.overrideWith(
+        (ref) => FakeAuthRepository(
+          signedInUser: const AuthUser(uid: 'mock_uid', providerId: 'google.com'),
+        ),
+      ),
+    ],
+  );
   final session = container.read(sessionProvider.notifier);
   session.completeSplash();
   session.completeOnboarding();
-  session.mockLogin();
+  session.completeLogin();
   session.setGoal(goal);
   session.confirmGoal();
   session.completeProfile();

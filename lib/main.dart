@@ -10,8 +10,8 @@ Future<void> main() async {
   runApp(const ProviderScope(child: PetdateApp()));
 }
 
-/// Android/iOS use generated options. Other platforms and tests continue
-/// without Firebase until Auth/Firestore are wired.
+/// Android/iOS use generated [DefaultFirebaseOptions]. Other platforms and
+/// widget tests continue without Firebase.
 Future<void> initializeFirebase() async {
   try {
     await Firebase.initializeApp(

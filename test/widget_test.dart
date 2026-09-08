@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:petdate/app.dart';
 import 'package:petdate/constants/app_constants.dart';
 import 'package:petdate/copy/app_copy.dart';
-import 'package:petdate/state/session_provider.dart';
 import 'package:petdate/theme/brand_assets.dart';
 import 'package:petdate/theme/tokens.dart';
 
+import 'helpers/test_app.dart';
+
 void main() {
   testWidgets('splash shows brand then onboarding copy', (tester) async {
-    await tester.pumpWidget(const ProviderScope(child: PetdateApp()));
+    await tester.pumpWidget(testApp());
 
     expect(find.bySemanticsLabel(AppCopy.appName), findsWidgets);
     expect(
@@ -40,7 +39,7 @@ void main() {
   });
 
   testWidgets('onboarding to login to goal to wizard to home', (tester) async {
-    await tester.pumpWidget(const ProviderScope(child: PetdateApp()));
+    await tester.pumpWidget(testApp());
     await tester.pump(const Duration(milliseconds: 1600));
     await tester.pumpAndSettle();
 
@@ -86,7 +85,7 @@ void main() {
   });
 
   testWidgets('already have account skips to login', (tester) async {
-    await tester.pumpWidget(const ProviderScope(child: PetdateApp()));
+    await tester.pumpWidget(testApp());
     await tester.pump(const Duration(milliseconds: 1600));
     await tester.pumpAndSettle();
 
@@ -97,7 +96,7 @@ void main() {
 
   testWidgets('light theme uses v0.4 tokens not cream or deepPurple',
       (tester) async {
-    await tester.pumpWidget(const ProviderScope(child: PetdateApp()));
+    await tester.pumpWidget(testApp());
     final materialApp = tester.widget<MaterialApp>(find.byType(MaterialApp));
     expect(materialApp.theme!.scaffoldBackgroundColor, AppColors.bg);
     expect(materialApp.theme!.colorScheme.primary, AppColors.primary);
@@ -111,7 +110,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const ProviderScope(child: PetdateApp()));
+    await tester.pumpWidget(testApp());
     await tester.pump(const Duration(milliseconds: 1600));
     await tester.pumpAndSettle();
     await tester.tap(find.text(AppCopy.alreadyHaveAccount));
@@ -164,21 +163,11 @@ void main() {
 
   testWidgets('main shell bottom nav after mocked completed session',
       (tester) async {
-    final container = ProviderContainer();
+    final container = testContainer();
     addTearDown(container.dispose);
-    container.read(sessionProvider.notifier).completeSplash();
-    container.read(sessionProvider.notifier).completeOnboarding();
-    container.read(sessionProvider.notifier).mockLogin();
-    container.read(sessionProvider.notifier).setGoal(UserGoal.walk);
-    container.read(sessionProvider.notifier).confirmGoal();
-    container.read(sessionProvider.notifier).completeProfile();
+    seedCompletedSession(container, goal: UserGoal.walk);
 
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: const PetdateApp(),
-      ),
-    );
+    await tester.pumpWidget(testApp(container: container));
     await tester.pumpAndSettle();
 
     expect(find.text(GoalCopy.homeTitle(UserGoal.walk)), findsOneWidget);

@@ -12,6 +12,7 @@ abstract final class AppCopy {
   static const loginApple = 'Apple로 계속하기';
   static const loginTerms =
       '계속하면 이용약관 및 개인정보 처리방침에 동의하는 것으로 볼게요.';
+  static const loginFailed = '로그인에 실패했어요. 다시 시도해 주세요.';
 
   /// Play / App Store listing placeholders (not shown in-app).
   static const storeSubtitle = '반려 친구 · 산책 메이트 찾기';
