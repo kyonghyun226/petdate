@@ -3,12 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:petdate/copy/app_copy.dart';
 import 'package:petdate/firebase/identity_contract.dart';
 import 'package:petdate/state/session_provider.dart';
+import 'package:petdate/state/user_doc_provider.dart';
 import 'package:petdate/theme/tokens.dart';
 import 'package:petdate/widgets/buttons.dart';
+import 'package:petdate/widgets/trust_badge.dart';
 
-/// A02 identity verification. Mock success unlocks the like gate locally.
-/// Callable [IdentityContract.confirmIdentityCallable] is TODO — the client
-/// never writes `users/{uid}.verifiedAt`.
+/// A02 identity verification. Mock success + callable TODO.
+/// Client never writes `users/{uid}.verifiedAt`.
 class A02VerifyScreen extends ConsumerStatefulWidget {
   const A02VerifyScreen({super.key});
 
@@ -18,6 +19,7 @@ class A02VerifyScreen extends ConsumerStatefulWidget {
 
 class _A02VerifyScreenState extends ConsumerState<A02VerifyScreen> {
   bool _busy = false;
+  bool _succeeded = false;
 
   Future<void> _confirm() async {
     if (_busy) return;
@@ -26,9 +28,24 @@ class _A02VerifyScreenState extends ConsumerState<A02VerifyScreen> {
     final ok = await IdentityVerification.requestMarkVerified(uid: uid);
     if (!mounted) return;
     if (ok) {
-      ref.read(sessionProvider.notifier).unlockFromUserDocMock();
+      ref.read(userDocProvider.notifier).applySnapshot();
+      setState(() {
+        _succeeded = true;
+        _busy = false;
+      });
+      return;
     }
-    Navigator.of(context).pop(ok);
+    setState(() => _busy = false);
+  }
+
+  void _goSpark() {
+    final session = ref.read(sessionProvider);
+    if (!session.profileCompleted) {
+      Navigator.of(context).pop(true);
+      return;
+    }
+    ref.read(sessionProvider.notifier).selectTab(MainTab.home);
+    Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
   @override
@@ -37,9 +54,9 @@ class _A02VerifyScreenState extends ConsumerState<A02VerifyScreen> {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-          onPressed: () => Navigator.of(context).pop(false),
+          onPressed: () => Navigator.of(context).pop(_succeeded),
         ),
-        title: const Text(AppCopy.verifyTitle),
+        title: Text(_succeeded ? AppCopy.verifyDone : AppCopy.verifyTitle),
       ),
       body: SafeArea(
         child: Padding(
@@ -49,38 +66,98 @@ class _A02VerifyScreenState extends ConsumerState<A02VerifyScreen> {
             AppSpacing.xl,
             AppSpacing.xl,
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: AppSpacing.lg),
-              Container(
-                width: 72,
-                height: 72,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: AppColors.primarySoft,
-                  borderRadius: BorderRadius.circular(AppRadius.card),
-                ),
-                child: const Icon(
-                  Icons.verified_user_outlined,
-                  color: AppColors.primary,
-                  size: 36,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xl),
-              Text(AppCopy.verifyTitle, style: AppTypography.display),
-              const SizedBox(height: AppSpacing.md),
-              Text(AppCopy.verifyBody, style: AppTypography.body),
-              const Spacer(),
-              PrimaryButton(
-                key: const ValueKey('a02-confirm'),
-                label: AppCopy.verifyCta,
-                onPressed: _busy ? null : _confirm,
-              ),
-            ],
+          child: _succeeded ? _SuccessBody(onGo: _goSpark) : _PromptBody(
+            busy: _busy,
+            onConfirm: _confirm,
           ),
         ),
       ),
+    );
+  }
+}
+
+class _PromptBody extends StatelessWidget {
+  const _PromptBody({required this.busy, required this.onConfirm});
+
+  final bool busy;
+  final VoidCallback onConfirm;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: AppSpacing.lg),
+        Container(
+          width: 72,
+          height: 72,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: AppColors.primarySoft,
+            borderRadius: BorderRadius.circular(AppRadius.card),
+          ),
+          child: const Icon(
+            Icons.verified_user_outlined,
+            color: AppColors.primary,
+            size: 36,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xl),
+        Text(AppCopy.verifyTitle, style: AppTypography.display),
+        const SizedBox(height: AppSpacing.md),
+        Text(AppCopy.verifyBody, style: AppTypography.body),
+        const Spacer(),
+        PrimaryButton(
+          key: const ValueKey('a02-confirm'),
+          label: AppCopy.verifyCta,
+          onPressed: busy ? null : onConfirm,
+        ),
+      ],
+    );
+  }
+}
+
+class _SuccessBody extends StatelessWidget {
+  const _SuccessBody({required this.onGo});
+
+  final VoidCallback onGo;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: AppSpacing.lg),
+        Container(
+          width: 88,
+          height: 88,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: AppColors.safetyBg,
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.check_rounded,
+            color: AppColors.secondary,
+            size: 48,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xl),
+        Text(AppCopy.verifyDone, style: AppTypography.display),
+        const SizedBox(height: AppSpacing.md),
+        Text(AppCopy.verifySuccessBody, style: AppTypography.body),
+        const SizedBox(height: AppSpacing.lg),
+        const Align(
+          alignment: Alignment.centerLeft,
+          child: TrustBadge(compact: false),
+        ),
+        const Spacer(),
+        PrimaryButton(
+          key: const ValueKey('a02-go-spark'),
+          label: AppCopy.verifyGoSpark,
+          onPressed: onGo,
+        ),
+      ],
     );
   }
 }

@@ -7,10 +7,12 @@ import 'package:petdate/models/discovery_profile.dart';
 import 'package:petdate/models/pet_tag.dart';
 import 'package:petdate/screens/r01_report/r01_report_sheet.dart';
 import 'package:petdate/state/session_provider.dart';
+import 'package:petdate/state/user_doc_provider.dart';
 import 'package:petdate/theme/tokens.dart';
 import 'package:petdate/widgets/buttons.dart';
 import 'package:petdate/widgets/chips.dart';
 import 'package:petdate/widgets/pet_photo.dart';
+import 'package:petdate/widgets/trust_badge.dart';
 
 class D01DetailScreen extends ConsumerStatefulWidget {
   const D01DetailScreen({super.key, required this.profile});
@@ -30,7 +32,7 @@ class _D01DetailScreenState extends ConsumerState<D01DetailScreen> {
   Widget build(BuildContext context) {
     final goal =
         ref.watch(sessionProvider.select((s) => s.goal)) ?? UserGoal.friend;
-    final verified = ref.watch(sessionProvider.select((s) => s.isVerified));
+    final verified = ref.watch(isVerifiedProvider);
     final photos =
         profile.photoSeeds.isEmpty ? const [0] : profile.photoSeeds;
 
@@ -107,9 +109,16 @@ class _D01DetailScreenState extends ConsumerState<D01DetailScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              profile.name,
-                              style: AppTypography.display,
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    profile.name,
+                                    style: AppTypography.display,
+                                  ),
+                                ),
+                                const TrustBadge(),
+                              ],
                             ),
                             const SizedBox(height: AppSpacing.sm),
                             Text(
@@ -161,7 +170,7 @@ class _D01DetailScreenState extends ConsumerState<D01DetailScreen> {
                       : AppCopy.likeNeedsVerify,
                   onPressed: () async {
                     if (!verified) {
-                      await openIdentityVerification(context);
+                      await promptIdentityVerification(context);
                       return;
                     }
                     await likeAndMaybeMatch(

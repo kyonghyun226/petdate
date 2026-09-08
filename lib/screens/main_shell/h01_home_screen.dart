@@ -6,6 +6,7 @@ import 'package:petdate/flow/spark_actions.dart';
 import 'package:petdate/models/discovery_profile.dart';
 import 'package:petdate/state/feed_provider.dart';
 import 'package:petdate/state/session_provider.dart';
+import 'package:petdate/state/user_doc_provider.dart';
 import 'package:petdate/theme/tokens.dart';
 import 'package:petdate/widgets/chips.dart';
 import 'package:petdate/widgets/common.dart';
@@ -158,7 +159,7 @@ class _PassLikeFabs extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final verified = ref.watch(sessionProvider.select((s) => s.isVerified));
+    final verified = ref.watch(isVerifiedProvider);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -194,7 +195,7 @@ class _PassLikeFabs extends ConsumerWidget {
               tooltip: verified ? AppCopy.likeTooltip : AppCopy.likeNeedsVerify,
               onTap: () {
                 if (!verified) {
-                  openIdentityVerification(context);
+                  promptIdentityVerification(context);
                   return;
                 }
                 likeAndMaybeMatch(context, ref, profile);

@@ -16,7 +16,6 @@ class AppSession {
     this.goal,
     this.mainTab = MainTab.home,
     this.uid,
-    this.verifiedAt,
   });
 
   final AppPhase phase;
@@ -28,12 +27,6 @@ class AppSession {
 
   /// Mock `users/{uid}` document id. Real Auth uid lands here after Google/Apple.
   final String? uid;
-
-  /// Local stand-in for a `users/{uid}.verifiedAt` **read/listen**.
-  /// Never written to Firestore from the client.
-  final DateTime? verifiedAt;
-
-  bool get isVerified => verifiedAt != null;
 
   bool get showBottomNav => phase == AppPhase.main && isLoggedIn;
 
@@ -47,8 +40,6 @@ class AppSession {
     MainTab? mainTab,
     String? uid,
     bool clearUid = false,
-    DateTime? verifiedAt,
-    bool clearVerifiedAt = false,
   }) {
     return AppSession(
       phase: phase ?? this.phase,
@@ -58,7 +49,6 @@ class AppSession {
       goal: clearGoal ? null : (goal ?? this.goal),
       mainTab: mainTab ?? this.mainTab,
       uid: clearUid ? null : (uid ?? this.uid),
-      verifiedAt: clearVerifiedAt ? null : (verifiedAt ?? this.verifiedAt),
     );
   }
 }
@@ -86,28 +76,13 @@ class SessionNotifier extends Notifier<AppSession> {
   }
 
   /// Mock social login. Real Google/Apple auth is out of scope.
-  ///
-  /// Does **not** unlock likes. A02 mock / user-doc listen must run first.
+  /// Likes stay locked until [UserDoc] listen sees `verifiedAt`.
   void mockLogin() {
     state = state.copyWith(
       isLoggedIn: true,
       phase: AppPhase.goal,
       uid: 'mock_uid',
-      clearVerifiedAt: true,
     );
-  }
-
-  /// Mock of a `users/{uid}` snapshot that already has `verifiedAt`.
-  /// Not a Firestore write.
-  void unlockFromUserDocMock({DateTime? verifiedAt}) {
-    state = state.copyWith(
-      verifiedAt: (verifiedAt ?? DateTime.now()).toUtc(),
-    );
-  }
-
-  /// Test helper: pretend the user-doc listen already saw `verifiedAt`.
-  void mockVerifyIdentity() {
-    unlockFromUserDocMock(verifiedAt: DateTime.utc(2026, 9, 8));
   }
 
   void setGoal(UserGoal goal) {

@@ -137,6 +137,11 @@ abstract final class AppCopy {
   static const verifyBody = '반짝하려면 본인인증이 필요해요. 인증이 끝나면 친구 사귀기·같이 산책하기를 바로 이어갈 수 있어요.';
   static const verifyCta = '인증하기';
   static const verifyDone = '인증됐어요';
+  static const verifySuccessBody = '이제 반짝으로 친구·산책 메이트를 만날 수 있어요';
+  static const verifyGoSpark = '반짝하러 가기';
+  static const verifyGateTitle = '안전하게 반짝해요';
+  static const verifyGateBody =
+      '본인인증을 마치면 좋아요를 보낼 수 있어요. 반려 친구·산책 메이트를 위한 한 걸음이에요.';
   static const verifyStatusVerified = '인증됨';
   static const verifyStatusUnverified = '미인증';
 

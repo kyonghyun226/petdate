@@ -13,6 +13,7 @@ import 'package:petdate/firebase/identity_contract.dart';
 import 'package:petdate/state/analytics_provider.dart';
 import 'package:petdate/state/profile_provider.dart';
 import 'package:petdate/state/session_provider.dart';
+import 'package:petdate/state/user_doc_provider.dart';
 import 'package:petdate/theme/tokens.dart';
 
 ProviderContainer _loggedIn({
@@ -27,7 +28,11 @@ ProviderContainer _loggedIn({
   session.setGoal(goal);
   session.confirmGoal();
   session.completeProfile();
-  if (verified) session.mockVerifyIdentity();
+  if (verified) {
+    container.read(userDocProvider.notifier).applySnapshot(
+          verifiedAt: DateTime.utc(2026, 9, 8),
+        );
+  }
   return container;
 }
 
@@ -324,8 +329,12 @@ void main() {
     expect(IdentityContract.verifiedAtField, 'verifiedAt');
     expect(IdentityContract.likesCollection, 'likes');
     expect(IdentityContract.matchesCollection, 'matches');
-    expect(IdentityContract.confirmIdentityCallable, 'confirmIdentity');
+    expect(IdentityContract.markUserVerifiedCallable, 'markUserVerified');
+    expect(IdentityContract.functionsRegion, 'asia-northeast3');
     expect(AppCopy.likeNeedsVerify, '인증 후 반짝할 수 있어요');
+    expect(AppCopy.verifyGateTitle, '안전하게 반짝해요');
+    expect(AppCopy.verifyDone, '인증됐어요');
+    expect(AppCopy.verifyGoSpark, '반짝하러 가기');
   });
 
   test('client dart never writes users.verifiedAt to Firestore', () {
@@ -342,31 +351,47 @@ void main() {
     }
   });
 
-  testWidgets('unverified like is gated to A02; pass still works', (tester) async {
+  testWidgets('unverified like opens gate sheet; pass still works', (tester) async {
     final container = _loggedIn(verified: false);
     addTearDown(container.dispose);
     await _pumpMain(tester, container);
 
-    expect(container.read(sessionProvider).isVerified, isFalse);
-    expect(container.read(profileIsVerifiedProvider), isFalse);
+    expect(container.read(isVerifiedProvider), isFalse);
     expect(find.text(AppCopy.likeNeedsVerify), findsOneWidget);
     expect(find.byKey(const ValueKey('home-card-kong')), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('pass-button')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('home-card-bori')), findsOneWidget);
-    expect(find.text(AppCopy.verifyTitle), findsNothing);
+    expect(find.text(AppCopy.verifyGateTitle), findsNothing);
 
     await tester.tap(find.byKey(const ValueKey('like-button')));
     await tester.pumpAndSettle();
-    expect(find.text(AppCopy.verifyTitle), findsWidgets);
-    expect(find.text(AppCopy.verifyCta), findsOneWidget);
+    expect(find.text(AppCopy.verifyGateTitle), findsOneWidget);
+    expect(find.text(AppCopy.verifyGateBody), findsOneWidget);
 
+    await tester.tap(find.text(AppCopy.later));
+    await tester.pumpAndSettle();
+    expect(find.text(AppCopy.verifyGateTitle), findsNothing);
+    expect(container.read(isVerifiedProvider), isFalse);
+
+    await tester.tap(find.byKey(const ValueKey('like-button')));
+    await tester.pumpAndSettle();
     await tester.tap(find.text(AppCopy.verifyCta));
     await tester.pumpAndSettle();
-    expect(container.read(sessionProvider).isVerified, isTrue);
+    expect(find.text(AppCopy.verifyTitle), findsWidgets);
+
+    await tester.tap(find.byKey(const ValueKey('a02-confirm')));
+    await tester.pumpAndSettle();
+    expect(container.read(isVerifiedProvider), isTrue);
+    expect(find.text(AppCopy.verifyDone), findsWidgets);
+    expect(find.text(AppCopy.verifySuccessBody), findsOneWidget);
+    expect(find.byKey(const ValueKey('trust-badge')), findsOneWidget);
+
+    await tester.tap(find.text(AppCopy.verifyGoSpark));
+    await tester.pumpAndSettle();
     expect(find.text(AppCopy.likeNeedsVerify), findsNothing);
-    expect(find.text(AppCopy.verifyTitle), findsNothing);
+    expect(find.text(GoalCopy.homeTitle(UserGoal.friend)), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('like-button')));
     await tester.pumpAndSettle();
@@ -374,7 +399,7 @@ void main() {
     expect(find.text(AppCopy.matchTitle), findsNothing);
   });
 
-  testWidgets('unverified D01 CTA opens A02 then restores friend CTA', (tester) async {
+  testWidgets('unverified D01 CTA sheet then A02 restores friend CTA', (tester) async {
     final container = _loggedIn(verified: false);
     addTearDown(container.dispose);
     await _pumpMain(tester, container);
@@ -383,12 +408,19 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text(AppCopy.likeNeedsVerify), findsWidgets);
     expect(find.text(GoalCopy.detailCta(UserGoal.friend, '콩이')), findsNothing);
+    expect(find.byKey(const ValueKey('trust-badge')), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('d01-cta')));
     await tester.pumpAndSettle();
-    expect(find.text(AppCopy.verifyCta), findsOneWidget);
+    expect(find.text(AppCopy.verifyGateTitle), findsOneWidget);
 
     await tester.tap(find.text(AppCopy.verifyCta));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('a02-confirm')));
+    await tester.pumpAndSettle();
+    expect(find.text(AppCopy.verifyDone), findsWidgets);
+
+    await tester.tap(find.byIcon(Icons.arrow_back_ios_new_rounded));
     await tester.pumpAndSettle();
     expect(find.text(GoalCopy.detailCta(UserGoal.friend, '콩이')), findsOneWidget);
     expect(find.text(AppCopy.likeNeedsVerify), findsNothing);

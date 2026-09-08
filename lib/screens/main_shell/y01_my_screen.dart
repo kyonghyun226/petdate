@@ -8,8 +8,10 @@ import 'package:petdate/screens/o01_goal/o01_goal_screen.dart';
 import 'package:petdate/screens/y01_settings/y01_settings_screen.dart';
 import 'package:petdate/state/profile_provider.dart';
 import 'package:petdate/state/session_provider.dart';
+import 'package:petdate/state/user_doc_provider.dart';
 import 'package:petdate/theme/tokens.dart';
 import 'package:petdate/widgets/pet_photo.dart';
+import 'package:petdate/widgets/trust_badge.dart';
 
 class Y01MyScreen extends ConsumerWidget {
   const Y01MyScreen({super.key});
@@ -18,7 +20,7 @@ class Y01MyScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final goal = ref.watch(sessionProvider.select((s) => s.goal));
     final draft = ref.watch(profileDraftProvider);
-    final verified = ref.watch(sessionProvider.select((s) => s.isVerified));
+    final verified = ref.watch(isVerifiedProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -43,7 +45,7 @@ class Y01MyScreen extends ConsumerWidget {
                 : AppCopy.verifyStatusUnverified,
             onTap: verified
                 ? () {}
-                : () => openIdentityVerification(context),
+                : () => promptIdentityVerification(context),
           ),
           _MenuTile(
             icon: Icons.flag_outlined,
@@ -155,15 +157,15 @@ class _PetSummaryCard extends StatelessWidget {
                   ),
                 ],
                 const SizedBox(height: AppSpacing.xs),
-                Text(
-                  verified
-                      ? AppCopy.verifyStatusVerified
-                      : AppCopy.verifyStatusUnverified,
-                  style: AppTypography.caption.copyWith(
-                    color: verified ? AppColors.secondary : AppColors.textMuted,
-                    fontWeight: FontWeight.w600,
+                if (verified)
+                  const TrustBadge()
+                else
+                  Text(
+                    AppCopy.verifyStatusUnverified,
+                    style: AppTypography.caption.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
               ],
             ),
           ),

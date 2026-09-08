@@ -4,38 +4,36 @@ import 'package:flutter/foundation.dart';
 /// exists (server timestamp). See `firestore.rules`.
 ///
 /// **Client must never `set` / `update` `users/{uid}.verifiedAt`.**
-/// That field is Admin / Cloud Functions only.
+/// Admin / Cloud Functions only.
 ///
-/// A02 flow in this PR:
-/// 1. Mock success (local UI unlock), or
-/// 2. TODO: HTTPS callable [confirmIdentityCallable] — server writes
-///    `verifiedAt`. Client then **reads / listens** `users/{uid}`.
+/// Flow: ensure users doc exists → call [markUserVerifiedCallable] →
+/// **listen** `users/{uid}` and unlock when `verifiedAt` appears.
 abstract final class IdentityContract {
-  static const confirmIdentityCallable = 'confirmIdentity';
+  static const markUserVerifiedCallable = 'markUserVerified';
+  static const functionsRegion = 'asia-northeast3';
   static const usersCollection = 'users';
   static const verifiedAtField = 'verifiedAt';
   static const likesCollection = 'likes';
   static const matchesCollection = 'matches';
 }
 
-/// A02 → Functions call site. No Firestore writes.
+/// A02 → 2nd gen HTTPS callable call site. No Firestore writes.
 abstract final class IdentityVerification {
-  /// Request the server to mark the user verified.
+  /// Request the server to mark the signed-in user verified.
   ///
-  /// TODO(firebase):
-  /// ```
-  /// await FirebaseFunctions.instance
-  ///     .httpsCallable(IdentityContract.confirmIdentityCallable)
-  ///     .call();
-  /// ```
-  /// Then listen/get `users/{uid}` for [IdentityContract.verifiedAtField].
+  /// TODO(firebase) — 2nd gen HTTPS callable, [IdentityContract.functionsRegion]:
+  /// `markUserVerified` requires Auth; Admin sets users/{uid}.verifiedAt
+  /// (server timestamp). Success `{ uid, verifiedAt ISO }`. Idempotent if
+  /// already set. `failed-precondition` if no user doc.
   ///
-  /// Mock: returns `true` only. Does **not** write Firestore.
+  /// After the callable returns, **listen** the user doc — do not write
+  /// `verifiedAt` from the client. Mock: returns `true` only.
   static Future<bool> requestMarkVerified({String? uid}) async {
     assert(() {
       debugPrint(
         'IdentityVerification.requestMarkVerified uid=${uid ?? 'mock'} '
-        'callable=${IdentityContract.confirmIdentityCallable} (TODO, mock ok)',
+        'callable=${IdentityContract.markUserVerifiedCallable} '
+        'region=${IdentityContract.functionsRegion} (TODO, mock ok)',
       );
       return true;
     }());

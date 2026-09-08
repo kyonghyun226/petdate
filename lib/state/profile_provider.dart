@@ -299,12 +299,3 @@ final profileDraftProvider =
   ProfileDraftNotifier.new,
 );
 
-/// `users/{uid}.verifiedAt` **read** mirror for profile surfaces (Y01).
-/// Not a write path.
-final profileVerifiedAtProvider = Provider<DateTime?>((ref) {
-  return ref.watch(sessionProvider.select((s) => s.verifiedAt));
-});
-
-final profileIsVerifiedProvider = Provider<bool>((ref) {
-  return ref.watch(sessionProvider.select((s) => s.isVerified));
-});
