@@ -82,10 +82,12 @@ ChatThread _thread({
 
 void main() {
   test('C01 tokens and copy match spec', () {
-    expect(AppSizes.chatRowHeight, 76);
-    expect(AppSizes.chatThumb, 56);
+    expect(AppSizes.chatRowHeight, 72);
+    expect(AppSizes.chatThumb, 48);
     expect(AppSizes.chatUnreadDot, 8);
     expect(AppColors.primary, const Color(0xFFFF6B4A));
+    expect(AppColors.bg, const Color(0xFFFFFFFF));
+    expect(AppColors.border, const Color(0xFFEFEFEF));
     expect(AppCopy.chatEmpty, '아직 반짝한 친구가 없어요');
     expect(AppCopy.goHome, '홈으로');
     expect(AppCopy.navChat, '채팅');
@@ -186,10 +188,36 @@ void main() {
     expect(find.text('8분 전'), findsOneWidget);
     expect(find.byKey(const ValueKey('chat-row-nuri')), findsNothing);
 
+    expect(
+      tester.getSize(find.byKey(const ValueKey('chat-row-dal'))).height,
+      72,
+    );
+    expect(
+      tester.getSize(find.byKey(const ValueKey('chat-thumb-dal'))),
+      const Size(48, 48),
+    );
+    final row = tester.widget<Container>(
+      find.byKey(const ValueKey('chat-row-dal')),
+    );
+    expect(
+      (row.decoration as BoxDecoration).border?.bottom.color,
+      const Color(0xFFEFEFEF),
+    );
+    final preview = tester.widget<Text>(find.text('주말 한강 산책 어때요?'));
+    expect(preview.maxLines, 1);
+    expect(preview.overflow, TextOverflow.ellipsis);
+    final scaffold = tester.widget<Scaffold>(
+      find.descendant(
+        of: find.byType(C01ChatScreen),
+        matching: find.byType(Scaffold),
+      ),
+    );
+    expect(scaffold.backgroundColor, AppColors.bg);
+
     final dot = tester.widget<Container>(
       find.byKey(const ValueKey('chat-unread-dal')),
     );
-    expect((dot.decoration as BoxDecoration).color, AppColors.primary);
+    expect((dot.decoration as BoxDecoration).color, const Color(0xFFFF6B4A));
     expect((dot.decoration as BoxDecoration).shape, BoxShape.circle);
 
     await tester.tap(find.byKey(const ValueKey('chat-row-dal')));

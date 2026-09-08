@@ -20,6 +20,7 @@ class C01ChatScreen extends ConsumerWidget {
     final threads = ref.watch(chatProvider).visible(blocked, myUid: uid);
 
     return Scaffold(
+      backgroundColor: AppColors.bg,
       appBar: AppBar(
         title: const Text(AppCopy.navChat),
         automaticallyImplyLeading: false,
@@ -69,12 +70,13 @@ class _ChatRow extends StatelessWidget {
           child: Row(
             children: [
               SizedBox(
+                key: ValueKey('chat-thumb-${thread.profile.id}'),
                 width: AppSizes.chatThumb,
                 height: AppSizes.chatThumb,
                 child: PetPhoto(
                   seed: thread.profile.photoSeeds.first,
                   circle: true,
-                  iconSize: 28,
+                  iconSize: 22,
                 ),
               ),
               const SizedBox(width: AppSpacing.md),
