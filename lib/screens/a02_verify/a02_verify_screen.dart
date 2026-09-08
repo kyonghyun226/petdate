@@ -8,7 +8,9 @@ import 'package:petdate/theme/tokens.dart';
 import 'package:petdate/widgets/buttons.dart';
 import 'package:petdate/widgets/trust_badge.dart';
 
-/// A02 identity verification. Mock success + callable TODO.
+/// A02 identity verification.
+/// After Auth: ensure user doc → `markUserVerified` → listen `users/{uid}`.
+/// Without Auth (tests / mock login): same UI, local mock unlock.
 /// Client never writes `users/{uid}.verifiedAt`.
 class A02VerifyScreen extends ConsumerStatefulWidget {
   const A02VerifyScreen({super.key});
@@ -23,16 +25,21 @@ class _A02VerifyScreenState extends ConsumerState<A02VerifyScreen> {
   Future<void> _confirm() async {
     if (_busy) return;
     setState(() => _busy = true);
-    final uid = ref.read(sessionProvider).uid;
-    await IdentityVerification.ensureUserDocExists(uid: uid);
+    final session = ref.read(sessionProvider);
+    await IdentityVerification.ensureUserDocExists(
+      uid: session.uid,
+      goal: session.goal,
+    );
     if (!mounted) return;
     // Server writes verifiedAt. Client listens — does not set the field.
-    final result = await IdentityVerification.requestMarkVerified(uid: uid);
+    final result =
+        await IdentityVerification.requestMarkVerified(uid: session.uid);
     if (!mounted) return;
     if (result != null) {
-      await ref
-          .read(userDocProvider.notifier)
-          .pullRemoteUserDoc(afterCallableSuccess: true);
+      await ref.read(userDocProvider.notifier).pullRemoteUserDoc(
+            afterCallableSuccess: true,
+            verifiedAtIso: result.verifiedAtIso,
+          );
     }
     if (mounted) setState(() => _busy = false);
   }

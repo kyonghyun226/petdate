@@ -1,10 +1,12 @@
 import 'package:flutter/foundation.dart';
+import 'package:petdate/copy/app_copy.dart';
+import 'package:petdate/firebase/identity_remote.dart';
 
 /// P0 Firestore + callable contract for A02.
 ///
 /// **NEVER client-write `users/{uid}.verifiedAt`.** Admin / Cloud Functions only.
 ///
-/// Callable (wire after PR #2+#3):
+/// Callable (deployed on `petdatinglove`):
 /// - name: [markUserVerifiedCallable]
 /// - 2nd gen HTTPS callable, region [functionsRegion]
 /// - requires Auth
@@ -13,10 +15,12 @@ import 'package:flutter/foundation.dart';
 /// - idempotent if already set
 /// - `failed-precondition` if the user doc does not exist
 ///
-/// Client flow:
+/// Client flow (after Firebase Auth):
 /// 1. [IdentityVerification.ensureUserDocExists] (no verifiedAt field)
 /// 2. [IdentityVerification.requestMarkVerified]
 /// 3. listen/get `users/{uid}` → [isVerified] unlock
+///
+/// Without Auth (tests / mock login) the same methods stay local mocks.
 abstract final class IdentityContract {
   static const markUserVerifiedCallable = 'markUserVerified';
   static const functionsRegion = 'asia-northeast3';
@@ -39,44 +43,48 @@ class MarkUserVerifiedResult {
   final String verifiedAtIso;
 }
 
-/// A02 call site. Mock until Functions is deployed. No Firestore writes.
+/// A02 call site. Live callable when Firebase Auth is present; mock otherwise.
+/// No client write of `verifiedAt`.
 abstract final class IdentityVerification {
   /// Ensure `users/{uid}` exists **without** `verifiedAt`.
   ///
-  /// TODO(firebase): create the user doc if missing. Do not set verifiedAt.
-  static Future<void> ensureUserDocExists({String? uid}) async {
+  /// Live: create the official MVP stub (`goal`, `searchRadiusKm`, `createdAt`).
+  /// Mock: no-op.
+  static Future<void> ensureUserDocExists({
+    String? uid,
+    UserGoal? goal,
+  }) async {
+    if (IdentityRemote.isLiveAuthReady) {
+      final key = goal == UserGoal.walk ? 'walk' : 'friend';
+      await IdentityRemote.ensureUserDoc(goal: key);
+      return;
+    }
     assert(() {
       debugPrint(
-        'IdentityVerification.ensureUserDocExists uid=${uid ?? 'mock'} (TODO)',
+        'IdentityVerification.ensureUserDocExists uid=${uid ?? 'mock'} (mock)',
       );
       return true;
     }());
   }
 
   /// 2nd gen HTTPS callable [IdentityContract.markUserVerifiedCallable]
-  /// in [IdentityContract.functionsRegion].
+  /// in [IdentityContract.functionsRegion] when Auth is present.
   ///
-  /// TODO(firebase):
-  /// ```
-  /// FirebaseFunctions.instanceFor(region: IdentityContract.functionsRegion)
-  ///   .httpsCallable(IdentityContract.markUserVerifiedCallable)
-  ///   .call();
-  /// ```
-  /// Map success to [MarkUserVerifiedResult]. Treat already-set as success.
-  /// Surface [IdentityContract.failedPrecondition] if there is no user doc.
-  ///
-  /// Unlock is **not** this return value — listen the user doc afterwards.
-  /// Mock: returns a fake `{ uid, verifiedAt ISO }` without writing.
+  /// Unlock is **not** this return value — listen/get the user doc afterwards.
+  /// Mock (no Auth): returns a fake `{ uid, verifiedAt ISO }` without writing.
   static Future<MarkUserVerifiedResult?> requestMarkVerified({
     String? uid,
   }) async {
+    if (IdentityRemote.isLiveAuthReady) {
+      return IdentityRemote.callMarkUserVerified();
+    }
     final resolved = uid ?? 'mock';
     final iso = DateTime.now().toUtc().toIso8601String();
     assert(() {
       debugPrint(
         'IdentityVerification.requestMarkVerified uid=$resolved '
         'callable=${IdentityContract.markUserVerifiedCallable} '
-        'region=${IdentityContract.functionsRegion} (TODO, mock ok) '
+        'region=${IdentityContract.functionsRegion} (mock, no Auth) '
         'verifiedAt=$iso',
       );
       return true;

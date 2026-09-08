@@ -10,6 +10,7 @@ import 'package:petdate/models/pet_tag.dart';
 import 'package:petdate/models/preferred_time.dart';
 import 'package:petdate/copy/species_copy.dart';
 import 'package:petdate/firebase/identity_contract.dart';
+import 'package:petdate/firebase/identity_remote.dart';
 import 'package:petdate/state/analytics_provider.dart';
 import 'package:petdate/state/profile_provider.dart';
 import 'package:petdate/state/session_provider.dart';
@@ -338,24 +339,25 @@ void main() {
     expect(AppCopy.verifyGoSpark, '반짝하러 가기');
   });
 
-  test('markUserVerified mock returns uid and ISO, not a Firestore write', () async {
+  test('markUserVerified mock returns uid and ISO when Auth is absent', () async {
+    expect(IdentityRemote.isLiveAuthReady, isFalse);
     final result = await IdentityVerification.requestMarkVerified(uid: 'u1');
     expect(result, isNotNull);
     expect(result!.uid, 'u1');
     expect(DateTime.tryParse(result.verifiedAtIso), isNotNull);
   });
 
-  test('client dart never writes users.verifiedAt to Firestore', () {
+  test('client dart never writes users.verifiedAt', () {
+    final writeVerifiedAt = RegExp(
+      r'''(verifiedAtField|'verifiedAt'|"verifiedAt")\s*:\s*''',
+    );
     final dartFiles = Directory('lib')
         .listSync(recursive: true)
         .whereType<File>()
         .where((f) => f.path.endsWith('.dart'));
     for (final file in dartFiles) {
       final src = file.readAsStringSync();
-      expect(src.contains('FirebaseFirestore'), isFalse, reason: file.path);
-      expect(src.contains("collection('users')"), isFalse, reason: file.path);
-      expect(src.contains('collection("users")'), isFalse, reason: file.path);
-      expect(src.contains('FieldValue.serverTimestamp'), isFalse, reason: file.path);
+      expect(writeVerifiedAt.hasMatch(src), isFalse, reason: file.path);
     }
   });
 
