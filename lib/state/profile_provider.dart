@@ -1,6 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:petdate/constants/app_constants.dart';
 import 'package:petdate/copy/app_copy.dart';
+import 'package:petdate/models/preferred_time.dart';
+import 'package:petdate/state/session_provider.dart';
 
 enum PetSpecies { dog, cat }
 
@@ -37,13 +40,16 @@ class ProfileDraft {
     this.photos = const [],
     this.primaryPhotoId,
     this.tags = const {},
+    this.preferredTimeSlots = const {},
     this.bio = '',
   });
 
   static const int lastStep = 3;
   static const int maxPhotos = 3;
-  static const int minTags = 3;
-  static const int maxTags = 8;
+  static const int minTags = AppConstants.minTags;
+  static const int maxTags = AppConstants.maxTags;
+  static const int minTimeSlots = AppConstants.minTimeSlots;
+  static const int maxTimeSlots = AppConstants.maxTimeSlots;
 
   final int step;
   final String petName;
@@ -58,7 +64,26 @@ class ProfileDraft {
   final List<MockPhoto> photos;
   final String? primaryPhotoId;
   final Set<String> tags;
+  final Set<PreferredTimeSlot> preferredTimeSlots;
   final String bio;
+
+  String get displayName =>
+      petName.trim().isEmpty ? AppCopy.fallbackPetName : petName.trim();
+
+  int? get displayAgeYears {
+    if (ageInputMode == AgeInputMode.age) return ageYears;
+    if (birthYear == null) return null;
+    final now = DateTime.now();
+    var years = now.year - birthYear!;
+    if (birthMonth != null && now.month < birthMonth!) years -= 1;
+    return years < 0 ? 0 : years;
+  }
+
+  int get primaryPhotoSeed {
+    if (photos.isEmpty) return 0;
+    final primary = photos.where((p) => p.id == primaryPhotoId);
+    return (primary.isEmpty ? photos.first : primary.first).seed;
+  }
 
   bool get hasAgeOrBirth {
     if (ageInputMode == AgeInputMode.age) {
@@ -77,7 +102,13 @@ class ProfileDraft {
 
   bool get p02Valid => photos.isNotEmpty;
 
-  bool get p03Valid => tags.length >= minTags && tags.length <= maxTags;
+  bool get p03TagsValid => tags.length >= minTags && tags.length <= maxTags;
+
+  bool get p03TimesValid =>
+      preferredTimeSlots.length >= minTimeSlots &&
+      preferredTimeSlots.length <= maxTimeSlots;
+
+  bool get p03Valid => p03TagsValid && p03TimesValid;
 
   bool get p04Valid => bio.length <= AppCopy.bioMax;
 
@@ -105,7 +136,9 @@ class ProfileDraft {
     PetSize? size,
     List<MockPhoto>? photos,
     String? primaryPhotoId,
+    bool clearPrimaryPhotoId = false,
     Set<String>? tags,
+    Set<PreferredTimeSlot>? preferredTimeSlots,
     String? bio,
   }) {
     return ProfileDraft(
@@ -120,8 +153,10 @@ class ProfileDraft {
       gender: gender ?? this.gender,
       size: size ?? this.size,
       photos: photos ?? this.photos,
-      primaryPhotoId: primaryPhotoId ?? this.primaryPhotoId,
+      primaryPhotoId:
+          clearPrimaryPhotoId ? null : (primaryPhotoId ?? this.primaryPhotoId),
       tags: tags ?? this.tags,
+      preferredTimeSlots: preferredTimeSlots ?? this.preferredTimeSlots,
       bio: bio ?? this.bio,
     );
   }
@@ -131,7 +166,16 @@ class ProfileDraftNotifier extends Notifier<ProfileDraft> {
   int _photoSeq = 0;
 
   @override
-  ProfileDraft build() => const ProfileDraft();
+  ProfileDraft build() {
+    ref.watch(sessionLoggedInTickProvider);
+    _photoSeq = 0;
+    return const ProfileDraft();
+  }
+
+  void reset() {
+    _photoSeq = 0;
+    state = const ProfileDraft();
+  }
 
   void goTo(int step) {
     state = state.copyWith(step: step);
@@ -197,21 +241,10 @@ class ProfileDraftNotifier extends Notifier<ProfileDraft> {
     if (primary == id) {
       primary = photos.isEmpty ? null : photos.first.id;
     }
-    state = ProfileDraft(
-      step: state.step,
-      petName: state.petName,
-      species: state.species,
-      breed: state.breed,
-      ageInputMode: state.ageInputMode,
-      ageYears: state.ageYears,
-      birthYear: state.birthYear,
-      birthMonth: state.birthMonth,
-      gender: state.gender,
-      size: state.size,
+    state = state.copyWith(
       photos: photos,
       primaryPhotoId: primary,
-      tags: state.tags,
-      bio: state.bio,
+      clearPrimaryPhotoId: primary == null,
     );
   }
 
@@ -221,7 +254,10 @@ class ProfileDraftNotifier extends Notifier<ProfileDraft> {
 
   void movePhoto(int from, int to) {
     if (from == to) return;
-    if (from < 0 || to < 0 || from >= state.photos.length || to >= state.photos.length) {
+    if (from < 0 ||
+        to < 0 ||
+        from >= state.photos.length ||
+        to >= state.photos.length) {
       return;
     }
     final photos = [...state.photos];
@@ -230,14 +266,24 @@ class ProfileDraftNotifier extends Notifier<ProfileDraft> {
     state = state.copyWith(photos: photos);
   }
 
-  void toggleTag(String tag) {
+  void toggleTag(String tagKey) {
     final next = {...state.tags};
-    if (next.contains(tag)) {
-      next.remove(tag);
+    if (next.contains(tagKey)) {
+      next.remove(tagKey);
     } else if (next.length < ProfileDraft.maxTags) {
-      next.add(tag);
+      next.add(tagKey);
     }
     state = state.copyWith(tags: next);
+  }
+
+  void toggleTimeSlot(PreferredTimeSlot slot) {
+    final next = {...state.preferredTimeSlots};
+    if (next.contains(slot)) {
+      next.remove(slot);
+    } else if (next.length < ProfileDraft.maxTimeSlots) {
+      next.add(slot);
+    }
+    state = state.copyWith(preferredTimeSlots: next);
   }
 
   void setBio(String value) {
@@ -246,7 +292,6 @@ class ProfileDraftNotifier extends Notifier<ProfileDraft> {
     }
     state = state.copyWith(bio: value);
   }
-
 }
 
 final profileDraftProvider =

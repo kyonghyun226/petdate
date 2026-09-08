@@ -6,13 +6,27 @@ import 'package:petdate/theme/tokens.dart';
 import 'package:petdate/widgets/buttons.dart';
 
 class O01GoalScreen extends ConsumerWidget {
-  const O01GoalScreen({super.key});
+  const O01GoalScreen({
+    super.key,
+    this.popOnConfirm = false,
+  });
+
+  /// When opened from Y01, apply goal and pop instead of entering the wizard.
+  final bool popOnConfirm;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final goal = ref.watch(sessionProvider.select((s) => s.goal));
 
     return Scaffold(
+      appBar: popOnConfirm
+          ? AppBar(
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            )
+          : null,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(
@@ -47,10 +61,16 @@ class O01GoalScreen extends ConsumerWidget {
               ),
               const Spacer(),
               PrimaryButton(
-                label: AppCopy.next,
+                label: popOnConfirm ? AppCopy.goalApply : AppCopy.next,
                 onPressed: goal == null
                     ? null
-                    : () => ref.read(sessionProvider.notifier).confirmGoal(),
+                    : () {
+                        if (popOnConfirm) {
+                          Navigator.of(context).pop();
+                        } else {
+                          ref.read(sessionProvider.notifier).confirmGoal();
+                        }
+                      },
               ),
             ],
           ),

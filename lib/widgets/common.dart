@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:petdate/theme/tokens.dart';
+import 'package:petdate/widgets/buttons.dart';
 
 class StepIndicator extends StatelessWidget {
   const StepIndicator({
@@ -125,11 +126,15 @@ class EmptyState extends StatelessWidget {
     required this.message,
     this.icon = Icons.auto_awesome_outlined,
     this.hint,
+    this.actionLabel,
+    this.onAction,
   });
 
   final String message;
   final IconData icon;
   final String? hint;
+  final String? actionLabel;
+  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
@@ -159,6 +164,16 @@ class EmptyState extends StatelessWidget {
               hint!,
               textAlign: TextAlign.center,
               style: AppTypography.caption,
+            ),
+          ],
+          if (actionLabel != null && onAction != null) ...[
+            const SizedBox(height: AppSpacing.xl),
+            SizedBox(
+              width: 200,
+              child: PrimaryButton(
+                label: actionLabel!,
+                onPressed: onAction,
+              ),
             ),
           ],
         ],

@@ -32,6 +32,7 @@ class AppSession {
     bool? onboardingCompleted,
     bool? profileCompleted,
     UserGoal? goal,
+    bool clearGoal = false,
     MainTab? mainTab,
   }) {
     return AppSession(
@@ -39,7 +40,7 @@ class AppSession {
       isLoggedIn: isLoggedIn ?? this.isLoggedIn,
       onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
       profileCompleted: profileCompleted ?? this.profileCompleted,
-      goal: goal ?? this.goal,
+      goal: clearGoal ? null : (goal ?? this.goal),
       mainTab: mainTab ?? this.mainTab,
     );
   }
@@ -99,8 +100,21 @@ class SessionNotifier extends Notifier<AppSession> {
   void selectTab(MainTab tab) {
     state = state.copyWith(mainTab: tab);
   }
+
+  void logout() {
+    state = const AppSession(
+      phase: AppPhase.login,
+      onboardingCompleted: true,
+    );
+  }
 }
 
 final sessionProvider = NotifierProvider<SessionNotifier, AppSession>(
   SessionNotifier.new,
 );
+
+/// Bumps mock stores when the user logs out.
+final sessionLoggedInTickProvider = Provider<int>((ref) {
+  final loggedIn = ref.watch(sessionProvider.select((s) => s.isLoggedIn));
+  return loggedIn ? 1 : 0;
+});

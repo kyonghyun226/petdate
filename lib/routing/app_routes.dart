@@ -9,7 +9,12 @@ abstract final class AppRoutes {
   static const profileP03 = '/p03';
   static const profileP04 = '/p04';
   static const home = '/h01';
+  static const detail = '/d01';
+  static const match = '/m01';
   static const spark = '/b01';
   static const chat = '/c01';
+  static const chatRoom = '/c02';
+  static const meetup = '/c03';
   static const my = '/y01';
+  static const report = '/r01';
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:petdate/app.dart';
+import 'package:petdate/constants/app_constants.dart';
 import 'package:petdate/copy/app_copy.dart';
 import 'package:petdate/state/session_provider.dart';
 import 'package:petdate/theme/tokens.dart';
@@ -111,9 +112,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text(AppCopy.p03Title), findsOneWidget);
 
-    await tester.tap(find.text(AppCopy.petTags[0]));
-    await tester.tap(find.text(AppCopy.petTags[1]));
-    await tester.tap(find.text(AppCopy.petTags[2]));
+    await tester.tap(find.text(AppCopy.petTags[0].label));
+    await tester.tap(find.text(AppCopy.petTags[1].label));
+    await tester.tap(find.text(AppCopy.petTags[2].label));
+    await tester.tap(find.text('평일 저녁'));
     await tester.pump();
     await tester.tap(find.text(AppCopy.next));
     await tester.pumpAndSettle();
@@ -147,13 +149,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text(GoalCopy.homeTitle(UserGoal.walk)), findsOneWidget);
-    expect(find.text(GoalCopy.homeEmpty(UserGoal.walk)), findsOneWidget);
+    expect(find.text('콩이'), findsWidgets);
     expect(find.text(AppCopy.navHome), findsOneWidget);
     expect(find.text(AppCopy.navSpark), findsOneWidget);
 
     await tester.tap(find.text(AppCopy.navSpark));
     await tester.pumpAndSettle();
-    expect(find.text(AppCopy.sparkEmpty), findsOneWidget);
+    expect(find.text(AppCopy.sparkReceived), findsOneWidget);
+    expect(find.text(AppCopy.sparkEmpty), findsNothing);
   });
 
   test('store listing copy constants', () {
@@ -165,9 +168,14 @@ void main() {
     );
     expect(AppCopy.onboardingPages, hasLength(3));
     expect(AppCopy.onboardingPages[1].title, '친구 사귀기 · 같이 산책하기');
-    expect(
-      AppCopy.onboardingPages[1].body,
+    expect(AppCopy.onboardingPages[1].body,
       '원하는 목적만 고르면, 라이프스타일이 맞는 견주·묘주를 추천해 드려요.',
     );
+    expect(AppCopy.petTags, hasLength(12));
+    expect(AppCopy.petTags.last.key, 'travel_mate');
+    expect(AppCopy.petTags.last.label, '여행 메이트');
+    expect(AppConstants.searchRadiusKm, 5);
+    expect(AppColors.safetyBg, const Color(0xFFE8F7F3));
+    expect(AppColors.safetyText, const Color(0xFF2F6F62));
   });
 }
