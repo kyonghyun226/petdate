@@ -2,6 +2,9 @@
 
 A new Flutter project.
 
+Adult ID verification (`users/{uid}.verifiedAt`) is written only by the
+`markUserVerified` Cloud Function. See [`functions/README.md`](functions/README.md).
+
 ## Getting Started
 
 This project is a starting point for a Flutter application.

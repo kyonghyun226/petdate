@@ -1,0 +1,54 @@
+# Typecheck + unit tests for Cloud Functions (A02 verifiedAt).
+# No Firebase service-account secrets; does not deploy.
+
+name: Functions
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - functions/**
+      - firebase.json
+      - .github/workflows/functions.yml
+  pull_request:
+    branches: [main]
+    paths:
+      - functions/**
+      - firebase.json
+      - .github/workflows/functions.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: functions-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  functions:
+    name: Build and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: functions
+
+      - name: Test
+        run: npm test
+        working-directory: functions
+
+      - name: Build
+        run: npm run build
+        working-directory: functions
