@@ -6,8 +6,9 @@ import 'package:petdate/state/session_provider.dart';
 import 'package:petdate/theme/tokens.dart';
 import 'package:petdate/widgets/buttons.dart';
 
-/// A02 identity verification. Success mirrors `users/{uid}.verifiedAt`
-/// after callable [IdentityContract.confirmIdentityCallable] (mocked).
+/// A02 identity verification. Mock success unlocks the like gate locally.
+/// Callable [IdentityContract.confirmIdentityCallable] is TODO — the client
+/// never writes `users/{uid}.verifiedAt`.
 class A02VerifyScreen extends ConsumerStatefulWidget {
   const A02VerifyScreen({super.key});
 
@@ -22,10 +23,12 @@ class _A02VerifyScreenState extends ConsumerState<A02VerifyScreen> {
     if (_busy) return;
     setState(() => _busy = true);
     final uid = ref.read(sessionProvider).uid;
-    final at = await IdentityVerification.confirmIdentityMock(uid: uid);
+    final ok = await IdentityVerification.requestMarkVerified(uid: uid);
     if (!mounted) return;
-    ref.read(sessionProvider.notifier).applyVerifiedAt(at);
-    Navigator.of(context).pop(true);
+    if (ok) {
+      ref.read(sessionProvider.notifier).unlockFromUserDocMock();
+    }
+    Navigator.of(context).pop(ok);
   }
 
   @override

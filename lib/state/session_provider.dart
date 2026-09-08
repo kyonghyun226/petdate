@@ -29,7 +29,8 @@ class AppSession {
   /// Mock `users/{uid}` document id. Real Auth uid lands here after Google/Apple.
   final String? uid;
 
-  /// Mirror of `users/{uid}.verifiedAt`. Null = Firestore likes/match create deny.
+  /// Local stand-in for a `users/{uid}.verifiedAt` **read/listen**.
+  /// Never written to Firestore from the client.
   final DateTime? verifiedAt;
 
   bool get isVerified => verifiedAt != null;
@@ -86,8 +87,7 @@ class SessionNotifier extends Notifier<AppSession> {
 
   /// Mock social login. Real Google/Apple auth is out of scope.
   ///
-  /// Does **not** set [AppSession.verifiedAt]. A02 / [applyVerifiedAt] must
-  /// run before likes/matches. See `IdentityContract`.
+  /// Does **not** unlock likes. A02 mock / user-doc listen must run first.
   void mockLogin() {
     state = state.copyWith(
       isLoggedIn: true,
@@ -97,15 +97,17 @@ class SessionNotifier extends Notifier<AppSession> {
     );
   }
 
-  /// Client-side mirror after callable `confirmIdentity` succeeds.
-  /// The users doc field itself is Admin-only (see `IdentityContract`).
-  void applyVerifiedAt(DateTime verifiedAt) {
-    state = state.copyWith(verifiedAt: verifiedAt.toUtc());
+  /// Mock of a `users/{uid}` snapshot that already has `verifiedAt`.
+  /// Not a Firestore write.
+  void unlockFromUserDocMock({DateTime? verifiedAt}) {
+    state = state.copyWith(
+      verifiedAt: (verifiedAt ?? DateTime.now()).toUtc(),
+    );
   }
 
-  /// Test helper: mark the session as identity-verified.
+  /// Test helper: pretend the user-doc listen already saw `verifiedAt`.
   void mockVerifyIdentity() {
-    applyVerifiedAt(DateTime.utc(2026, 9, 8));
+    unlockFromUserDocMock(verifiedAt: DateTime.utc(2026, 9, 8));
   }
 
   void setGoal(UserGoal goal) {

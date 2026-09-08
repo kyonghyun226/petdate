@@ -1,18 +1,15 @@
 import 'package:flutter/foundation.dart';
 
-/// P0 Firestore contract: likes / matches create is denied unless
-/// `users/{uid}.verifiedAt` exists (server timestamp).
+/// P0: `likes` / `matches` create is denied unless `users/{uid}.verifiedAt`
+/// exists (server timestamp). See `firestore.rules`.
 ///
-/// `verifiedAt` is **Admin / callable-only**. The Flutter client must not
-/// write this field on `users/{uid}` directly. After Auth, A02 success calls
-/// callable [confirmIdentityCallable], which Admin-sets:
+/// **Client must never `set` / `update` `users/{uid}.verifiedAt`.**
+/// That field is Admin / Cloud Functions only.
 ///
-/// ```
-/// users/{uid}.verifiedAt = FieldValue.serverTimestamp()
-/// ```
-///
-/// TODO(firebase): replace [confirmIdentityMock] with
-/// `FirebaseFunctions.instance.httpsCallable(confirmIdentityCallable)`.
+/// A02 flow in this PR:
+/// 1. Mock success (local UI unlock), or
+/// 2. TODO: HTTPS callable [confirmIdentityCallable] — server writes
+///    `verifiedAt`. Client then **reads / listens** `users/{uid}`.
 abstract final class IdentityContract {
   static const confirmIdentityCallable = 'confirmIdentity';
   static const usersCollection = 'users';
@@ -21,21 +18,27 @@ abstract final class IdentityContract {
   static const matchesCollection = 'matches';
 }
 
-/// A02 success write path. Mock until Cloud Functions is wired.
+/// A02 → Functions call site. No Firestore writes.
 abstract final class IdentityVerification {
-  /// Mock of callable `confirmIdentity`.
+  /// Request the server to mark the user verified.
   ///
-  /// Real implementation: Auth uid → HTTPS callable → Admin SDK merge-set
-  /// `users/{uid}.verifiedAt`. Returns the server time the client should
-  /// mirror onto [AppSession.verifiedAt].
-  static Future<DateTime> confirmIdentityMock({String? uid}) async {
+  /// TODO(firebase):
+  /// ```
+  /// await FirebaseFunctions.instance
+  ///     .httpsCallable(IdentityContract.confirmIdentityCallable)
+  ///     .call();
+  /// ```
+  /// Then listen/get `users/{uid}` for [IdentityContract.verifiedAtField].
+  ///
+  /// Mock: returns `true` only. Does **not** write Firestore.
+  static Future<bool> requestMarkVerified({String? uid}) async {
     assert(() {
       debugPrint(
-        'IdentityVerification.confirmIdentityMock uid=${uid ?? 'mock'} '
-        '(callable ${IdentityContract.confirmIdentityCallable} not wired)',
+        'IdentityVerification.requestMarkVerified uid=${uid ?? 'mock'} '
+        'callable=${IdentityContract.confirmIdentityCallable} (TODO, mock ok)',
       );
       return true;
     }());
-    return DateTime.now().toUtc();
+    return true;
   }
 }

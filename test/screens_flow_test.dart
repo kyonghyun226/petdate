@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -324,6 +326,20 @@ void main() {
     expect(IdentityContract.matchesCollection, 'matches');
     expect(IdentityContract.confirmIdentityCallable, 'confirmIdentity');
     expect(AppCopy.likeNeedsVerify, '인증 후 반짝할 수 있어요');
+  });
+
+  test('client dart never writes users.verifiedAt to Firestore', () {
+    final dartFiles = Directory('lib')
+        .listSync(recursive: true)
+        .whereType<File>()
+        .where((f) => f.path.endsWith('.dart'));
+    for (final file in dartFiles) {
+      final src = file.readAsStringSync();
+      expect(src.contains('FirebaseFirestore'), isFalse, reason: file.path);
+      expect(src.contains("collection('users')"), isFalse, reason: file.path);
+      expect(src.contains('collection("users")'), isFalse, reason: file.path);
+      expect(src.contains('FieldValue.serverTimestamp'), isFalse, reason: file.path);
+    }
   });
 
   testWidgets('unverified like is gated to A02; pass still works', (tester) async {
