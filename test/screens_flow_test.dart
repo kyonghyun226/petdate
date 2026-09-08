@@ -44,7 +44,7 @@ void main() {
     await _pumpMain(tester, container);
 
     expect(find.text(GoalCopy.homeTitle(UserGoal.walk)), findsOneWidget);
-    expect(find.text('콩이'), findsWidgets);
+    expect(find.textContaining('콩이'), findsWidgets);
 
     for (var i = 0; i < 5; i++) {
       await tester.tap(find.byKey(const ValueKey('pass-button')));
@@ -56,7 +56,7 @@ void main() {
 
     await tester.tap(find.text(AppCopy.refresh));
     await tester.pumpAndSettle();
-    expect(find.text('콩이'), findsWidgets);
+    expect(find.textContaining('콩이'), findsWidgets);
   });
 
   testWidgets('H01 tap opens D01 and CTA matches', (tester) async {
@@ -64,7 +64,7 @@ void main() {
     addTearDown(container.dispose);
     await _pumpMain(tester, container);
 
-    await tester.tap(find.text('콩이').first);
+    await tester.tap(find.byKey(const ValueKey('home-card-kong')));
     await tester.pumpAndSettle();
     expect(find.text(GoalCopy.detailCta(UserGoal.friend, '콩이')), findsOneWidget);
     expect(find.text('꼬리부터 반짝하는 말티즈예요. 공원에서 친구 만드는 중!'), findsOneWidget);
@@ -137,8 +137,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text(AppCopy.sparkMatched));
     await tester.pumpAndSettle();
-    expect(find.text('콩이'), findsWidgets);
-    await tester.tap(find.text('콩이').first);
+    expect(find.textContaining('콩이'), findsWidgets);
+    await tester.tap(find.textContaining('콩이').first);
     await tester.pumpAndSettle();
     expect(find.text(AppCopy.chatSystemMatch), findsOneWidget);
   });

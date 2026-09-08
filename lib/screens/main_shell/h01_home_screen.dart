@@ -202,8 +202,9 @@ class _ProfileCard extends StatelessWidget {
       elevation: 6,
       shadowColor: Colors.black.withValues(alpha: 0.12),
       borderRadius: BorderRadius.circular(AppRadius.card),
-      child: InkWell(
-        onTap: onTap,
+        child: InkWell(
+          key: ValueKey('home-card-${profile.id}'),
+          onTap: onTap,
         borderRadius: BorderRadius.circular(AppRadius.card),
         child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -5,7 +5,7 @@ import 'package:petdate/models/preferred_time.dart';
 import 'package:petdate/state/profile_provider.dart';
 
 abstract final class MockCatalog {
-  static const profiles = <DiscoveryProfile>[
+  static final profiles = <DiscoveryProfile>[
     DiscoveryProfile(
       id: 'kong',
       name: '콩이',

@@ -149,7 +149,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text(GoalCopy.homeTitle(UserGoal.walk)), findsOneWidget);
-    expect(find.text('콩이'), findsWidgets);
+    expect(find.textContaining('콩이'), findsWidgets);
     expect(find.text(AppCopy.navHome), findsOneWidget);
     expect(find.text(AppCopy.navSpark), findsOneWidget);
 

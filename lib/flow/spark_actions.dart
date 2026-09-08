@@ -17,7 +17,7 @@ abstract final class SparkActions {
   }
 
   static void pass(WidgetRef ref, DiscoveryProfile profile) {
-    ref.read(feedProvider.notifier).dismiss(profile.id);
+    ref.read(feedProvider.notifier).dismiss(profile.id, passed: true);
   }
 
   static ChatThread ensureChat(WidgetRef ref, DiscoveryProfile profile) {

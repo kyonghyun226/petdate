@@ -44,8 +44,8 @@ class FeedNotifier extends Notifier<FeedState> {
     _dismiss(current.id, passed: true);
   }
 
-  void dismiss(String profileId) {
-    _dismiss(profileId, passed: false);
+  void dismiss(String profileId, {bool passed = false}) {
+    _dismiss(profileId, passed: passed);
   }
 
   void _dismiss(String profileId, {required bool passed}) {
