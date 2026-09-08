@@ -128,8 +128,17 @@ class MockSocialRepository implements SocialRepository {
 
   List<ChatThread> _threadsFor(String myUid) => [
         for (final thread in _threads.values)
-          if (_isParticipant(thread.id, myUid)) thread,
+          if (_isParticipant(thread.id, myUid) && !thread.unavailable) thread,
       ];
+
+  /// Marks the counterpart as withdrawn so C01 drops the room.
+  void withdrawUser(String profileId) {
+    for (final entry in _threads.entries) {
+      if (entry.value.profile.id != profileId) continue;
+      _threads[entry.key] = entry.value.copyWith(unavailable: true);
+    }
+    _emitThreads();
+  }
 
   /// Creates a participant match + thread. Used by mock likes and C01 inbox.
   ChatThread ensureThread(

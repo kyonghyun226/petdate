@@ -208,6 +208,7 @@ class FirestoreSocialRepository implements SocialRepository {
     final other = userIds.firstWhere((id) => id != myUid, orElse: () => myUid);
     final pet = await _pets.doc(other).get();
     final profile = PetCodec.toDiscovery(pet.id, pet.data());
+    // Withdrawn / deleted counterpart: drop the room (no placeholder row).
     if (profile == null) return null;
 
     final msgSnap = await _threads

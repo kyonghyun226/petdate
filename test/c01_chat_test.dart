@@ -51,6 +51,7 @@ Future<void> _openChat(WidgetTester tester) async {
 ChatThread _thread({
   required DiscoveryProfile profile,
   bool unread = false,
+  bool unavailable = false,
   String preview = '주말 한강 산책 어때요?',
   DateTime? updatedAt,
   String? myUid,
@@ -60,6 +61,7 @@ ChatThread _thread({
     id: FirestoreIds.matchId(uid, profile.id),
     profile: profile,
     unread: unread,
+    unavailable: unavailable,
     updatedAt: updatedAt ?? DateTime.utc(2026, 9, 8, 11, 52),
     participantIds: {uid, profile.id},
     messages: [
@@ -94,7 +96,7 @@ void main() {
     );
   });
 
-  test('visible hides blocked and non-participant threads', () {
+  test('visible hides blocked, withdrawn, and non-participant threads', () {
     final container = _loggedIn();
     addTearDown(container.dispose);
     final dal = MockCatalog.byId('dal')!;
@@ -102,6 +104,11 @@ void main() {
       threads: [
         _thread(profile: dal, unread: true),
         _thread(profile: MockCatalog.blocked, unread: true),
+        _thread(
+          profile: MockCatalog.byId('gureum')!,
+          unavailable: true,
+          unread: true,
+        ),
         _thread(
           profile: MockCatalog.byId('bori')!,
           myUid: 'other_user_0000001',
@@ -225,5 +232,9 @@ void main() {
 
     final other = await repo.watchThreads(myUid: 'someoneelse000001').first;
     expect(other, isEmpty);
+
+    repo.withdrawUser('dal');
+    final afterWithdraw = await repo.watchThreads(myUid: _uid).first;
+    expect(afterWithdraw, isEmpty);
   });
 }

@@ -65,6 +65,7 @@ class ChatThread {
     this.updatedAt,
     this.unread = false,
     this.participantIds = const {},
+    this.unavailable = false,
   });
 
   final String id;
@@ -75,6 +76,9 @@ class ChatThread {
 
   /// Match members. Empty means "treat as a participant" for local mocks.
   final Set<String> participantIds;
+
+  /// Counterpart withdrew or their pet doc is gone. C01 hides these rooms.
+  final bool unavailable;
 
   int get outboundCount =>
       messages.where((m) => m.isMine && m.kind != ChatMessageKind.system).length;
@@ -104,6 +108,7 @@ class ChatThread {
     DateTime? updatedAt,
     bool? unread,
     Set<String>? participantIds,
+    bool? unavailable,
   }) {
     return ChatThread(
       id: id,
@@ -112,6 +117,7 @@ class ChatThread {
       updatedAt: updatedAt ?? this.updatedAt,
       unread: unread ?? this.unread,
       participantIds: participantIds ?? this.participantIds,
+      unavailable: unavailable ?? this.unavailable,
     );
   }
 }

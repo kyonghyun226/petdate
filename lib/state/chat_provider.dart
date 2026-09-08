@@ -34,7 +34,10 @@ class ChatState {
   List<ChatThread> visible(Set<String> blockedIds, {String? myUid}) {
     final rows = [
       for (final t in threads)
-        if (!blockedIds.contains(t.profile.id) && t.isParticipant(myUid)) t,
+        if (!blockedIds.contains(t.profile.id) &&
+            !t.unavailable &&
+            t.isParticipant(myUid))
+          t,
     ];
     rows.sort((a, b) => b.sortAt.compareTo(a.sortAt));
     return rows;
