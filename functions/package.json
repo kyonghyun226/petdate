@@ -1,0 +1,28 @@
+{
+  "name": "petdate-functions",
+  "description": "Cloud Functions for 반짝산책 (petdatinglove)",
+  "private": true,
+  "main": "lib/index.js",
+  "engines": {
+    "node": "22"
+  },
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "lint": "tsc --noEmit",
+    "test": "tsx --test src/**/*.test.ts",
+    "test:emulator": "npx -y firebase-tools@latest emulators:exec --only firestore --project petdatinglove \"npm test\"",
+    "serve": "npm run build && npx -y firebase-tools@latest emulators:start --only functions,firestore --project petdatinglove",
+    "deploy": "npx -y firebase-tools@latest deploy --only functions --project petdatinglove",
+    "logs": "npx -y firebase-tools@latest functions:log --project petdatinglove"
+  },
+  "dependencies": {
+    "firebase-admin": "^14.3.0",
+    "firebase-functions": "^7.3.2"
+  },
+  "devDependencies": {
+    "@types/node": "^26.5.0",
+    "tsx": "^4.23.13",
+    "typescript": "^7.0.2"
+  }
+}

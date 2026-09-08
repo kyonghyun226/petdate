@@ -16,8 +16,8 @@ rules_version = '2';
 // MVP: 1 pet per account. Doc id pets/{petId} == ownerId == uid
 // so uniqueness is structural (no Cloud Function needed).
 //
-// users.verifiedAt is NOT client-writable (Admin SDK / later
-// adult-ID Function). Likes and match creates require it.
+// users.verifiedAt is NOT client-writable (Admin SDK /
+// functions/markUserVerified). Likes and match creates require it.
 //
 // Block filtering is NOT encoded in rules. A blocked neighbor in a
 // pet list would fail the whole query (rules are not filters), and
@@ -47,7 +47,8 @@ rules_version = '2';
 //     on create)
 //   - displayName: string 1–40 (optional, P1)
 //   - verifiedAt: timestamp (optional). Client cannot create or
-//     change this field. Admin SDK sets it after verification.
+//     change this field. markUserVerified (Admin SDK) sets it
+//     after A02 adult ID verification.
 //
 // Collection: pets
 // Document ID: {petId} == ownerId == auth.uid (1 pet / user)
