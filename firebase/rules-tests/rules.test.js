@@ -1,7 +1,6 @@
 /**
- * Firestore rules contract tests for 반짝산책 (petdate).
+ * Official MVP Firestore contract tests for 반짝산책 (petdate).
  *
- * Run from repo root (emulator must be up, or use firebase emulators:exec):
  *   npx -y firebase-tools@latest emulators:exec --only firestore --project petdatinglove \
  *     "npm test --prefix firebase/rules-tests"
  */
@@ -45,50 +44,28 @@ function unauth() {
   return env.unauthenticatedContext().firestore();
 }
 
-function userDoc(uid, extra = {}) {
+function userDoc(extra = {}) {
   return {
-    uid,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-    onboardingCompleted: true,
-    profileCompleted: true,
     goal: 'walk',
+    searchRadiusKm: 5,
+    createdAt: serverTimestamp(),
     ...extra,
   };
 }
 
-function publishedPet(ownerId, extra = {}) {
+function petDoc(ownerId, extra = {}) {
   return {
     ownerId,
     name: '초코',
     species: 'dog',
     breed: '말티즈',
-    gender: 'male',
+    age: 3,
+    sex: 'male',
     size: 'small',
-    ageYears: 3,
-    tags: ['산책 좋아해요', '공원 러버', '친구 많아요'],
+    photos: [`pets/${ownerId}/primary.jpg`],
+    tags: ['walk_lover', 'park_lover', 'cafe_lover'],
     bio: '주말 한강',
-    photoPaths: [`pets/${ownerId}/primary.jpg`],
-    primaryPhotoIndex: 0,
     preferredTimeSlots: ['weekendMorning'],
-    goal: 'walk',
-    isPublished: true,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-    ...extra,
-  };
-}
-
-function draftPet(ownerId, extra = {}) {
-  return {
-    ownerId,
-    tags: [],
-    bio: '',
-    photoPaths: [],
-    primaryPhotoIndex: 0,
-    preferredTimeSlots: [],
-    isPublished: false,
-    createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
     ...extra,
   };
@@ -96,12 +73,26 @@ function draftPet(ownerId, extra = {}) {
 
 async function seed(write) {
   await env.withSecurityRulesDisabled(async (context) => {
-    const firestore = context.firestore();
-    await write(firestore);
+    await write(context.firestore());
   });
 }
 
-describe('petdate firestore.rules', () => {
+async function seedVerifiedPair() {
+  await seed(async (fs) => {
+    await setDoc(doc(fs, 'users', ALICE), {
+      ...userDoc(),
+      verifiedAt: serverTimestamp(),
+    });
+    await setDoc(doc(fs, 'users', BOB), {
+      ...userDoc(),
+      verifiedAt: serverTimestamp(),
+    });
+    await setDoc(doc(fs, 'pets', ALICE), petDoc(ALICE));
+    await setDoc(doc(fs, 'pets', BOB), petDoc(BOB, { name: '나비' }));
+  });
+}
+
+describe('petdate official MVP firestore.rules', () => {
   before(async () => {
     env = await initializeTestEnvironment({
       projectId: 'petdatinglove-rules-test',
@@ -117,137 +108,99 @@ describe('petdate firestore.rules', () => {
     await env.clearFirestore();
   });
 
-  describe('default deny / unauthenticated', () => {
-    it('denies unauthenticated user read', async () => {
+  describe('default deny', () => {
+    it('denies unauthenticated reads of users and pets', async () => {
       await seed(async (fs) => {
-        await setDoc(doc(fs, 'users', ALICE), userDoc(ALICE));
-        await setDoc(doc(fs, 'pets', ALICE), publishedPet(ALICE));
+        await setDoc(doc(fs, 'users', ALICE), userDoc());
+        await setDoc(doc(fs, 'pets', ALICE), petDoc(ALICE));
       });
       await assertFails(getDoc(doc(unauth(), 'users', ALICE)));
       await assertFails(getDoc(doc(unauth(), 'pets', ALICE)));
     });
 
     it('denies unknown collections', async () => {
-      await assertFails(
-        setDoc(doc(db(ALICE), 'secrets', 'x'), { uid: ALICE }),
-      );
+      await assertFails(setDoc(doc(db(ALICE), 'chats', 'x'), { a: 1 }));
+      await assertFails(setDoc(doc(db(ALICE), 'passes', 'x'), { a: 1 }));
       await assertFails(getDoc(doc(db(ALICE), 'admin', 'config')));
     });
   });
 
   describe('users/{uid}', () => {
-    it('allows owner create/read/update with valid schema', async () => {
+    it('allows owner create/read/update without self-setting verifiedAt', async () => {
       await assertSucceeds(
-        setDoc(doc(db(ALICE), 'users', ALICE), userDoc(ALICE)),
+        setDoc(doc(db(ALICE), 'users', ALICE), userDoc()),
       );
       await assertSucceeds(getDoc(doc(db(ALICE), 'users', ALICE)));
       await assertSucceeds(
-        updateDoc(doc(db(ALICE), 'users', ALICE), {
-          goal: 'friend',
-          updatedAt: serverTimestamp(),
-        }),
+        updateDoc(doc(db(ALICE), 'users', ALICE), { goal: 'friend' }),
       );
     });
 
-    it('denies reading or writing another user', async () => {
-      await seed(async (fs) => {
-        await setDoc(doc(fs, 'users', ALICE), userDoc(ALICE));
-      });
+    it('denies peer read/write, extra fields, and client verifiedAt', async () => {
+      await assertSucceeds(
+        setDoc(doc(db(ALICE), 'users', ALICE), userDoc()),
+      );
       await assertFails(getDoc(doc(db(BOB), 'users', ALICE)));
       await assertFails(
-        setDoc(doc(db(BOB), 'users', ALICE), userDoc(ALICE)),
-      );
-      await assertFails(
-        updateDoc(doc(db(BOB), 'users', ALICE), {
-          goal: 'friend',
-          updatedAt: serverTimestamp(),
-        }),
-      );
-    });
-
-    it('denies extra fields, missing uid, and spoofed uid', async () => {
-      await assertFails(
         setDoc(doc(db(ALICE), 'users', ALICE), {
-          ...userDoc(ALICE),
+          ...userDoc(),
           email: 'alice@example.com',
         }),
       );
       await assertFails(
         setDoc(doc(db(ALICE), 'users', ALICE), {
-          ...userDoc(ALICE),
-          isAdmin: true,
+          ...userDoc(),
+          verifiedAt: serverTimestamp(),
         }),
       );
       await assertFails(
-        setDoc(doc(db(ALICE), 'users', BOB), userDoc(BOB)),
-      );
-      await assertFails(
-        setDoc(doc(db(ALICE), 'users', ALICE), {
-          ...userDoc(ALICE),
-          uid: BOB,
-        }),
-      );
-    });
-
-    it('denies changing uid or createdAt on update', async () => {
-      await assertSucceeds(
-        setDoc(doc(db(ALICE), 'users', ALICE), userDoc(ALICE)),
-      );
-      await assertFails(
-        updateDoc(doc(db(ALICE), 'users', ALICE), {
-          uid: BOB,
-          updatedAt: serverTimestamp(),
-        }),
+        setDoc(doc(db(ALICE), 'users', BOB), userDoc()),
       );
       await assertFails(
         updateDoc(doc(db(ALICE), 'users', ALICE), {
           createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
+        }),
+      );
+    });
+
+    it('rejects searchRadiusKm outside 1–50', async () => {
+      await assertFails(
+        setDoc(doc(db(ALICE), 'users', ALICE), {
+          ...userDoc(),
+          searchRadiusKm: 0,
+        }),
+      );
+      await assertFails(
+        setDoc(doc(db(ALICE), 'users', ALICE), {
+          ...userDoc(),
+          searchRadiusKm: 51,
         }),
       );
     });
   });
 
-  describe('pets/{uid}', () => {
-    it('allows owner to save an unpublished draft', async () => {
+  describe('pets/{petId}', () => {
+    it('lets any signed-in user read explore cards; owner writes', async () => {
       await assertSucceeds(
-        setDoc(doc(db(ALICE), 'pets', ALICE), draftPet(ALICE)),
+        setDoc(doc(db(ALICE), 'pets', ALICE), petDoc(ALICE)),
       );
-    });
-
-    it('hides unpublished pets from others; allows published explore reads', async () => {
-      await seed(async (fs) => {
-        await setDoc(doc(fs, 'pets', ALICE), publishedPet(ALICE));
-        await setDoc(doc(fs, 'pets', BOB), publishedPet(BOB, { name: '나비' }));
-        await setDoc(doc(fs, 'pets', EVE), draftPet(EVE));
-      });
       await assertSucceeds(getDoc(doc(db(BOB), 'pets', ALICE)));
-      await assertFails(getDoc(doc(db(ALICE), 'pets', EVE)));
-      await assertSucceeds(getDoc(doc(db(EVE), 'pets', EVE)));
-      await assertFails(getDocs(collection(db(ALICE), 'pets')));
+      await assertSucceeds(getDocs(collection(db(BOB), 'pets')));
       await assertSucceeds(
-        getDocs(
-          query(collection(db(ALICE), 'pets'), where('isPublished', '==', true)),
-        ),
-      );
-    });
-
-    it('rejects published pets missing required explore fields', async () => {
-      await assertFails(
-        setDoc(doc(db(ALICE), 'pets', ALICE), {
-          ...draftPet(ALICE),
-          isPublished: true,
+        updateDoc(doc(db(ALICE), 'pets', ALICE), {
+          bio: '꼬리가 먼저 반짝해요',
+          updatedAt: serverTimestamp(),
         }),
       );
     });
 
-    it('rejects oversized bio, extra fields, and path traversal photos', async () => {
+    it('rejects invalid tags, oversized bio, and photo path escape', async () => {
       await assertSucceeds(
-        setDoc(doc(db(ALICE), 'pets', ALICE), publishedPet(ALICE)),
+        setDoc(doc(db(ALICE), 'pets', ALICE), petDoc(ALICE)),
       );
-      await assertSucceeds(
+      await assertFails(
         updateDoc(doc(db(ALICE), 'pets', ALICE), {
-          bio: '꼬리가 먼저 반짝해요',
+          tags: ['walk_lover', 'not_a_real_tag', 'park_lover'],
           updatedAt: serverTimestamp(),
         }),
       );
@@ -259,336 +212,224 @@ describe('petdate firestore.rules', () => {
       );
       await assertFails(
         updateDoc(doc(db(ALICE), 'pets', ALICE), {
-          email: 'hidden@example.com',
+          photos: [`pets/${BOB}/stolen.jpg`],
           updatedAt: serverTimestamp(),
         }),
       );
       await assertFails(
-        updateDoc(doc(db(ALICE), 'pets', ALICE), {
-          photoPaths: [`pets/${BOB}/stolen.jpg`],
-          updatedAt: serverTimestamp(),
-        }),
-      );
-      await assertFails(
-        updateDoc(doc(db(ALICE), 'pets', ALICE), {
-          ownerId: BOB,
-          updatedAt: serverTimestamp(),
-        }),
+        setDoc(doc(db(ALICE), 'pets', BOB), petDoc(ALICE)),
       );
     });
   });
 
-  describe('likes / passes / blocks', () => {
-    async function seedPublishedPair() {
+  describe('likes', () => {
+    it('denies likes when verifiedAt is missing', async () => {
       await seed(async (fs) => {
-        await setDoc(doc(fs, 'pets', ALICE), publishedPet(ALICE));
-        await setDoc(doc(fs, 'pets', BOB), publishedPet(BOB));
+        await setDoc(doc(fs, 'users', ALICE), userDoc());
+        await setDoc(doc(fs, 'pets', BOB), petDoc(BOB));
       });
-    }
-
-    it('allows a user to like a published pet as themselves only', async () => {
-      await seedPublishedPair();
-      await assertSucceeds(
+      await assertFails(
         setDoc(doc(db(ALICE), 'likes', `${ALICE}_${BOB}`), {
           fromUid: ALICE,
-          toUid: BOB,
-          createdAt: serverTimestamp(),
-        }),
-      );
-      await assertFails(
-        setDoc(doc(db(ALICE), 'likes', `${BOB}_${ALICE}`), {
-          fromUid: BOB,
-          toUid: ALICE,
-          createdAt: serverTimestamp(),
-        }),
-      );
-      await assertFails(
-        setDoc(doc(db(ALICE), 'likes', `${ALICE}_${EVE}`), {
-          fromUid: ALICE,
-          toUid: EVE,
+          toPetId: BOB,
+          toOwnerId: BOB,
           createdAt: serverTimestamp(),
         }),
       );
     });
 
-    it('lets the recipient read a like but not update it', async () => {
-      await seedPublishedPair();
-      await setDoc(doc(db(ALICE), 'likes', `${ALICE}_${BOB}`), {
-        fromUid: ALICE,
-        toUid: BOB,
-        createdAt: serverTimestamp(),
-      });
+    it('allows verified creator create/read/delete; recipient read', async () => {
+      await seedVerifiedPair();
+      await assertSucceeds(
+        setDoc(doc(db(ALICE), 'likes', `${ALICE}_${BOB}`), {
+          fromUid: ALICE,
+          toPetId: BOB,
+          toOwnerId: BOB,
+          createdAt: serverTimestamp(),
+        }),
+      );
+      await assertSucceeds(getDoc(doc(db(ALICE), 'likes', `${ALICE}_${BOB}`)));
       await assertSucceeds(getDoc(doc(db(BOB), 'likes', `${ALICE}_${BOB}`)));
       await assertFails(getDoc(doc(db(EVE), 'likes', `${ALICE}_${BOB}`)));
       await assertFails(
-        updateDoc(doc(db(ALICE), 'likes', `${ALICE}_${BOB}`), {
-          toUid: EVE,
-        }),
-      );
-    });
-
-    it('keeps passes private to the passer', async () => {
-      await seedPublishedPair();
-      await assertSucceeds(
-        setDoc(doc(db(ALICE), 'passes', `${ALICE}_${BOB}`), {
-          fromUid: ALICE,
-          toUid: BOB,
-          createdAt: serverTimestamp(),
-        }),
-      );
-      await assertFails(getDoc(doc(db(BOB), 'passes', `${ALICE}_${BOB}`)));
-    });
-
-    it('blocks like-create when either user has blocked the other', async () => {
-      await seedPublishedPair();
-      await setDoc(doc(db(BOB), 'blocks', `${BOB}_${ALICE}`), {
-        blockerUid: BOB,
-        blockedUid: ALICE,
-        createdAt: serverTimestamp(),
-      });
-      await assertFails(
-        setDoc(doc(db(ALICE), 'likes', `${ALICE}_${BOB}`), {
-          fromUid: ALICE,
-          toUid: BOB,
-          createdAt: serverTimestamp(),
-        }),
-      );
-    });
-
-    it('allows blocker-only read/delete of blocks; denies self-block', async () => {
-      await assertSucceeds(
-        setDoc(doc(db(ALICE), 'blocks', `${ALICE}_${BOB}`), {
-          blockerUid: ALICE,
-          blockedUid: BOB,
-          createdAt: serverTimestamp(),
-        }),
-      );
-      await assertFails(getDoc(doc(db(BOB), 'blocks', `${ALICE}_${BOB}`)));
-      await assertFails(
-        setDoc(doc(db(ALICE), 'blocks', `${ALICE}_${ALICE}`), {
-          blockerUid: ALICE,
-          blockedUid: ALICE,
+        setDoc(doc(db(ALICE), 'likes', `${BOB}_${ALICE}`), {
+          fromUid: BOB,
+          toPetId: ALICE,
+          toOwnerId: ALICE,
           createdAt: serverTimestamp(),
         }),
       );
       await assertSucceeds(
-        deleteDoc(doc(db(ALICE), 'blocks', `${ALICE}_${BOB}`)),
+        deleteDoc(doc(db(ALICE), 'likes', `${ALICE}_${BOB}`)),
       );
     });
   });
 
-  describe('matches / chats / messages / meetups', () => {
+  describe('matches / threads / messages / meetProposals', () => {
     async function seedMutualLikes() {
+      await seedVerifiedPair();
       await seed(async (fs) => {
-        await setDoc(doc(fs, 'pets', ALICE), publishedPet(ALICE));
-        await setDoc(doc(fs, 'pets', BOB), publishedPet(BOB));
         await setDoc(doc(fs, 'likes', `${ALICE}_${BOB}`), {
           fromUid: ALICE,
-          toUid: BOB,
+          toPetId: BOB,
+          toOwnerId: BOB,
           createdAt: serverTimestamp(),
         });
         await setDoc(doc(fs, 'likes', `${BOB}_${ALICE}`), {
           fromUid: BOB,
-          toUid: ALICE,
+          toPetId: ALICE,
+          toOwnerId: ALICE,
           createdAt: serverTimestamp(),
         });
       });
     }
 
     it('denies match create without mutual likes', async () => {
+      await seedVerifiedPair();
       await seed(async (fs) => {
-        await setDoc(doc(fs, 'pets', ALICE), publishedPet(ALICE));
-        await setDoc(doc(fs, 'pets', BOB), publishedPet(BOB));
         await setDoc(doc(fs, 'likes', `${ALICE}_${BOB}`), {
           fromUid: ALICE,
-          toUid: BOB,
+          toPetId: BOB,
+          toOwnerId: BOB,
           createdAt: serverTimestamp(),
         });
       });
       await assertFails(
         setDoc(doc(db(ALICE), 'matches', PAIR_AB), {
-          participantIds: [ALICE, BOB],
-          unmatched: false,
+          userIds: [ALICE, BOB],
+          petIds: [ALICE, BOB],
           createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
         }),
       );
     });
 
-    it('allows match+chat after mutual likes; scopes chat to participants', async () => {
+    it('allows match+thread after mutual likes; scopes to participants', async () => {
       await seedMutualLikes();
       await assertSucceeds(
         setDoc(doc(db(ALICE), 'matches', PAIR_AB), {
-          participantIds: [ALICE, BOB],
-          unmatched: false,
+          userIds: [ALICE, BOB],
+          petIds: [ALICE, BOB],
           createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
         }),
       );
       await assertSucceeds(
-        setDoc(doc(db(ALICE), 'chats', PAIR_AB), {
-          participantIds: [ALICE, BOB],
-          lastMessagePreview: '',
-          lastMessageAt: serverTimestamp(),
-          createdAt: serverTimestamp(),
+        setDoc(doc(db(ALICE), 'threads', PAIR_AB), {
+          lastMessage: '',
           updatedAt: serverTimestamp(),
         }),
       );
-      await assertSucceeds(getDoc(doc(db(BOB), 'chats', PAIR_AB)));
-      await assertFails(getDoc(doc(db(EVE), 'chats', PAIR_AB)));
+      await assertSucceeds(getDoc(doc(db(BOB), 'threads', PAIR_AB)));
+      await assertFails(getDoc(doc(db(EVE), 'threads', PAIR_AB)));
       await assertFails(getDoc(doc(db(EVE), 'matches', PAIR_AB)));
     });
 
-    it('allows participant text messages and rejects outsider / system spoof', async () => {
+    it('allows participant text messages and rejects other types', async () => {
       await seedMutualLikes();
       await seed(async (fs) => {
         await setDoc(doc(fs, 'matches', PAIR_AB), {
-          participantIds: [ALICE, BOB],
-          unmatched: false,
+          userIds: [ALICE, BOB],
+          petIds: [ALICE, BOB],
           createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
         });
-        await setDoc(doc(fs, 'chats', PAIR_AB), {
-          participantIds: [ALICE, BOB],
-          lastMessagePreview: '',
-          lastMessageAt: serverTimestamp(),
-          createdAt: serverTimestamp(),
+        await setDoc(doc(fs, 'threads', PAIR_AB), {
+          lastMessage: '',
           updatedAt: serverTimestamp(),
         });
       });
       await assertSucceeds(
-        setDoc(doc(db(ALICE), 'chats', PAIR_AB, 'messages', 'm1'), {
+        setDoc(doc(db(ALICE), 'threads', PAIR_AB, 'messages', 'm1'), {
           senderId: ALICE,
-          kind: 'text',
+          type: 'text',
           text: '안녕',
           createdAt: serverTimestamp(),
         }),
       );
       await assertFails(
-        setDoc(doc(db(ALICE), 'chats', PAIR_AB, 'messages', 'm2'), {
+        setDoc(doc(db(ALICE), 'threads', PAIR_AB, 'messages', 'm2'), {
           senderId: ALICE,
-          kind: 'system',
+          type: 'system',
           text: '매칭됨',
           createdAt: serverTimestamp(),
         }),
       );
       await assertFails(
-        setDoc(doc(db(EVE), 'chats', PAIR_AB, 'messages', 'm3'), {
+        setDoc(doc(db(EVE), 'threads', PAIR_AB, 'messages', 'm3'), {
           senderId: EVE,
-          kind: 'text',
+          type: 'text',
           text: 'hello',
           createdAt: serverTimestamp(),
         }),
       );
-      await assertFails(
-        updateDoc(doc(db(ALICE), 'chats', PAIR_AB, 'messages', 'm1'), {
-          text: 'edited',
-        }),
-      );
     });
 
-    it('enforces meetup transitions and blocks invalid jumps', async () => {
+    it('enforces meetProposal status transitions', async () => {
       await seedMutualLikes();
       await seed(async (fs) => {
         await setDoc(doc(fs, 'matches', PAIR_AB), {
-          participantIds: [ALICE, BOB],
-          unmatched: false,
+          userIds: [ALICE, BOB],
+          petIds: [ALICE, BOB],
           createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-        await setDoc(doc(fs, 'chats', PAIR_AB), {
-          participantIds: [ALICE, BOB],
-          lastMessagePreview: '',
-          lastMessageAt: serverTimestamp(),
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
         });
       });
-      const meetupRef = doc(db(ALICE), 'chats', PAIR_AB, 'meetups', 'meet1');
       await assertSucceeds(
-        setDoc(meetupRef, {
-          proposerId: ALICE,
-          receiverId: BOB,
-          place: 'park',
-          placeDetail: '',
-          timeLabel: '토요일 오후 3시',
-          memo: '',
+        setDoc(doc(db(ALICE), 'meetProposals', 'p1'), {
+          matchId: PAIR_AB,
+          fromUid: ALICE,
+          placeType: 'park',
+          timeSlot: '토요일 오후 3시',
           status: 'pending',
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
         }),
       );
       await assertFails(
-        updateDoc(meetupRef, {
+        updateDoc(doc(db(ALICE), 'meetProposals', 'p1'), {
           status: 'accepted',
-          updatedAt: serverTimestamp(),
         }),
       );
       await assertSucceeds(
-        updateDoc(doc(db(BOB), 'chats', PAIR_AB, 'meetups', 'meet1'), {
+        updateDoc(doc(db(BOB), 'meetProposals', 'p1'), {
           status: 'accepted',
-          updatedAt: serverTimestamp(),
         }),
       );
       await assertFails(
-        updateDoc(doc(db(BOB), 'chats', PAIR_AB, 'meetups', 'meet1'), {
-          status: 'declined',
-          updatedAt: serverTimestamp(),
-        }),
-      );
-    });
-
-    it('stops messages after unmatch', async () => {
-      await seedMutualLikes();
-      await seed(async (fs) => {
-        await setDoc(doc(fs, 'matches', PAIR_AB), {
-          participantIds: [ALICE, BOB],
-          unmatched: false,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-        await setDoc(doc(fs, 'chats', PAIR_AB), {
-          participantIds: [ALICE, BOB],
-          lastMessagePreview: '',
-          lastMessageAt: serverTimestamp(),
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-      });
-      await assertSucceeds(
-        updateDoc(doc(db(ALICE), 'matches', PAIR_AB), {
-          unmatched: true,
-          updatedAt: serverTimestamp(),
-        }),
-      );
-      await assertFails(
-        setDoc(doc(db(ALICE), 'chats', PAIR_AB, 'messages', 'late'), {
-          senderId: ALICE,
-          kind: 'text',
-          text: 'still here',
-          createdAt: serverTimestamp(),
+        updateDoc(doc(db(BOB), 'meetProposals', 'p1'), {
+          status: 'dismissed',
         }),
       );
     });
   });
 
-  describe('reports', () => {
-    it('allows reporter create/read and denies mutation or peer read', async () => {
+  describe('blocks / reports', () => {
+    it('allows blocker-only read of blocks', async () => {
+      await assertSucceeds(
+        setDoc(doc(db(ALICE), 'blocks', `${ALICE}_${BOB}`), {
+          blockerId: ALICE,
+          blockedId: BOB,
+        }),
+      );
+      await assertSucceeds(getDoc(doc(db(ALICE), 'blocks', `${ALICE}_${BOB}`)));
+      await assertFails(getDoc(doc(db(BOB), 'blocks', `${ALICE}_${BOB}`)));
+      await assertSucceeds(
+        getDocs(
+          query(
+            collection(db(ALICE), 'blocks'),
+            where('blockerId', '==', ALICE),
+          ),
+        ),
+      );
+    });
+
+    it('allows reporter create and denies all client reads', async () => {
       await assertSucceeds(
         setDoc(doc(db(ALICE), 'reports', 'r1'), {
-          reporterUid: ALICE,
-          targetUid: BOB,
+          reporterId: ALICE,
           targetType: 'user',
+          targetId: BOB,
           reason: 'spam',
-          details: '',
           createdAt: serverTimestamp(),
         }),
       );
-      await assertSucceeds(getDoc(doc(db(ALICE), 'reports', 'r1')));
+      await assertFails(getDoc(doc(db(ALICE), 'reports', 'r1')));
       await assertFails(getDoc(doc(db(BOB), 'reports', 'r1')));
-      await assertFails(
-        updateDoc(doc(db(ALICE), 'reports', 'r1'), { reason: 'other' }),
-      );
       await assertFails(deleteDoc(doc(db(ALICE), 'reports', 'r1')));
     });
   });
