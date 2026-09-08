@@ -6,7 +6,6 @@ import 'package:petdate/copy/app_copy.dart';
 import 'package:petdate/data/mock_profiles.dart';
 import 'package:petdate/models/spark.dart';
 import 'package:petdate/screens/main_shell/b01_spark_screen.dart';
-import 'package:petdate/state/session_provider.dart';
 import 'package:petdate/state/spark_provider.dart';
 import 'package:petdate/state/user_doc_provider.dart';
 import 'package:petdate/theme/tokens.dart';
