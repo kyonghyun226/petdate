@@ -43,6 +43,16 @@ final authRepositoryProvider = Provider<AuthRepository>(
   (ref) => FirebaseAuthRepository(),
 );
 
+/// Live Firebase user. Prefer [AppSession.uid] for simple reads; use this
+/// stream when feature code needs provider changes without driving phases.
+final authStateChangesProvider = StreamProvider<AuthUser?>((ref) {
+  return ref.watch(authRepositoryProvider).authStateChanges();
+});
+
+final currentAuthUserProvider = Provider<AuthUser?>((ref) {
+  return ref.watch(authRepositoryProvider).currentUser;
+});
+
 class FirebaseAuthRepository implements AuthRepository {
   FirebaseAuthRepository({
     this._auth,

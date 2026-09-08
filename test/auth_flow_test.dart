@@ -100,5 +100,25 @@ void main() {
 
     expect(find.text(AppCopy.loginTitle), findsOneWidget);
     expect(container.read(sessionProvider).isLoggedIn, isFalse);
+    expect(container.read(sessionProvider).uid, isNull);
+  });
+
+  testWidgets('successful sign-in exposes uid on the session', (tester) async {
+    final auth = FakeAuthRepository();
+    final container = testContainer(auth: auth);
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(testApp(container: container));
+    await tester.pump(const Duration(milliseconds: 1600));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(AppCopy.alreadyHaveAccount));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(AppCopy.loginGoogle));
+    await tester.pumpAndSettle();
+
+    expect(container.read(sessionProvider).isLoggedIn, isTrue);
+    expect(container.read(sessionProvider).phase, AppPhase.goal);
+    expect(container.read(sessionProvider).uid, 'fake-google.com');
+    expect(container.read(currentAuthUserProvider)?.uid, 'fake-google.com');
   });
 }
