@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "503588097549",
+    "project_id": "petdatinglove",
+    "storage_bucket": "petdatinglove.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:503588097549:android:544b912c6b1a1c1018cf44",
+        "android_client_info": {
+          "package_name": "kr.mooca.petdate"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC51vEXgWVlW5pTlirUbfMMXQu76tE475k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
