@@ -66,6 +66,7 @@ class O01GoalScreen extends ConsumerWidget {
                     ? null
                     : () {
                         if (popOnConfirm) {
+                          ref.read(sessionProvider.notifier).applyGoal();
                           Navigator.of(context).pop();
                         } else {
                           ref.read(sessionProvider.notifier).confirmGoal();

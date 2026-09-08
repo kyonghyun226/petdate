@@ -28,6 +28,12 @@ abstract final class IdentityContract {
   static const verifiedAtField = 'verifiedAt';
   static const likesCollection = 'likes';
   static const matchesCollection = 'matches';
+  static const petsCollection = 'pets';
+  static const threadsCollection = 'threads';
+  static const messagesCollection = 'messages';
+  static const meetProposalsCollection = 'meetProposals';
+  static const blocksCollection = 'blocks';
+  static const reportsCollection = 'reports';
   static const failedPrecondition = 'failed-precondition';
 }
 

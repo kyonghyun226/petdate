@@ -177,6 +177,12 @@ class ProfileDraftNotifier extends Notifier<ProfileDraft> {
     state = const ProfileDraft();
   }
 
+  /// Restore a completed pet card (returning Auth session).
+  void hydrate(ProfileDraft draft) {
+    state = draft;
+    _photoSeq = draft.photos.length;
+  }
+
   void goTo(int step) {
     state = state.copyWith(step: step);
   }

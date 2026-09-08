@@ -34,6 +34,7 @@ abstract final class IdentityRemote {
 
   /// Create `users/{authUid}` with the official MVP fields only.
   /// Does **not** set [IdentityContract.verifiedAtField].
+  /// If the doc exists, updates `goal` without touching `verifiedAt`.
   static Future<void> ensureUserDoc({required String goal}) async {
     final uid = authUid;
     if (uid == null) return;
@@ -41,7 +42,13 @@ abstract final class IdentityRemote {
         .collection(IdentityContract.usersCollection)
         .doc(uid);
     final snap = await doc.get();
-    if (snap.exists) return;
+    if (snap.exists) {
+      final current = snap.data()?['goal'] as String?;
+      if (current != goal) {
+        await doc.update({'goal': goal});
+      }
+      return;
+    }
     await doc.set({
       'goal': goal,
       'searchRadiusKm': AppConstants.searchRadiusKm,

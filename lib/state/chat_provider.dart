@@ -1,6 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:petdate/copy/app_copy.dart';
+import 'package:petdate/data/backend_mode.dart';
+import 'package:petdate/data/social_providers.dart';
+import 'package:petdate/firebase/firestore_ids.dart';
 import 'package:petdate/models/chat.dart';
 import 'package:petdate/models/discovery_profile.dart';
 import 'package:petdate/state/session_provider.dart';
@@ -33,6 +38,19 @@ class ChatNotifier extends Notifier<ChatState> {
   ChatState build() {
     ref.watch(sessionLoggedInTickProvider);
     _msgSeq = 0;
+    if (ref.watch(useMockDataProvider)) {
+      return const ChatState();
+    }
+
+    final uid = ref.watch(sessionProvider.select((s) => s.uid));
+    if (uid == null) return const ChatState();
+    final sub =
+        ref.read(socialRepositoryProvider).watchThreads(myUid: uid).listen(
+      (threads) {
+        state = ChatState(threads: threads);
+      },
+    );
+    ref.onDispose(sub.cancel);
     return const ChatState();
   }
 
@@ -40,9 +58,14 @@ class ChatNotifier extends Notifier<ChatState> {
     final existing = state.byProfile(profile.id);
     if (existing != null) return existing;
 
+    final uid = ref.read(sessionProvider).uid ?? 'local';
+    final id = FirestoreIds.matchId(uid, profile.id);
+    final byId = state.byId(id);
+    if (byId != null) return byId;
+
     final messages = <ChatMessage>[
       ChatMessage(
-        id: _nextId(),
+        id: 'sys_$id',
         text: AppCopy.chatSystemMatch,
         isMine: false,
         kind: ChatMessageKind.system,
@@ -57,7 +80,7 @@ class ChatNotifier extends Notifier<ChatState> {
         ),
     ];
     final thread = ChatThread(
-      id: 'chat_${profile.id}',
+      id: id,
       profile: profile,
       messages: messages,
     );
@@ -84,6 +107,14 @@ class ChatNotifier extends Notifier<ChatState> {
             t,
       ],
     );
+    if (!ref.read(useMockDataProvider)) {
+      unawaited(
+        ref.read(socialRepositoryProvider).setMeetupStatus(
+              proposalId: messageId,
+              receipt: receipt,
+            ),
+      );
+    }
   }
 
   void sendText(String threadId, String text) {
@@ -97,6 +128,17 @@ class ChatNotifier extends Notifier<ChatState> {
         isMine: true,
       ),
     );
+    if (!ref.read(useMockDataProvider)) {
+      final uid = ref.read(sessionProvider).uid;
+      if (uid == null) return;
+      unawaited(
+        ref.read(socialRepositoryProvider).sendText(
+              matchId: threadId,
+              senderId: uid,
+              text: trimmed,
+            ),
+      );
+    }
   }
 
   void sendMeetup(String threadId, MeetupProposal proposal) {
@@ -118,6 +160,17 @@ class ChatNotifier extends Notifier<ChatState> {
         kind: ChatMessageKind.meetup,
       ),
     );
+    if (!ref.read(useMockDataProvider)) {
+      final uid = ref.read(sessionProvider).uid;
+      if (uid == null) return;
+      unawaited(
+        ref.read(socialRepositoryProvider).sendMeetup(
+              matchId: threadId,
+              fromUid: uid,
+              proposal: proposal,
+            ),
+      );
+    }
   }
 
   void _append(String threadId, ChatMessage message) {

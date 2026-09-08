@@ -62,6 +62,50 @@ Adult ID verification (`users/{uid}.verifiedAt`) is written only by the
 
 ### 동작
 
-- A01 Google / Apple → Firebase 사용자 생성·재사용 → `isLoggedIn` + `phase: goal`
-- Firebase Auth가 모바일에서 세션을 유지합니다. 재실행 시 스플래시 후 로그인을 건너뛰고, 아직 없는 목적/프로필 게이트는 그대로입니다.
+- A01 Google / Apple → Firebase 사용자 생성·재사용 → `SessionNotifier` 계약 유지: `uid`, `isLoggedIn`, `phase`
+- Firebase Auth가 모바일에서 세션을 유지합니다. 재실행 시 스플래시가 `users/{uid}` · `pets/{uid}`를 읽어 목적/프로필 게이트를 건너뛸 수 있습니다.
 - 로그아웃: 마이 화면 (`SessionNotifier.signOut()`).
+
+Auth가 없으면 (위젯 테스트, 미설정 호스트) 탐색·좋아요·채팅은 **in-memory mock**으로 동작합니다. Auth가 있으면 Firestore 실경로입니다.
+
+## A02 · likes / matches / chat (Firestore)
+
+클라 경로는 `IdentityRemote.isLiveAuthReady`로 갈립니다.
+
+| 단계 | 실연결 |
+| --- | --- |
+| O01 목적 확정 | `users/{uid}` ensure (`goal`, `searchRadiusKm`, `createdAt`). **`verifiedAt` 클라 write 없음** |
+| 프로필 완료 | `pets/{uid}` upsert. `petId == ownerId == uid` |
+| A02 인증 | ensure user doc → callable `markUserVerified` (`asia-northeast3`) → `users/{uid}` listen으로 `verifiedAt` 해금 |
+| 좋아요 | `likes/{fromUid}_{toPetId}`. `verifiedAt` 없으면 규칙 deny |
+| 매칭 | 상호 좋아요 시 `matches/{minUid}_{maxUid}` + `threads/{matchId}` 배치 생성. `petIds` = 정렬된 uid |
+| 채팅 | `threads/{matchId}/messages`, `meetProposals` |
+| 차단·신고 | `blocks/{blockerId}_{blockedId}`, `reports` (클라 read 없음) |
+
+컬렉션: `users` / `pets` / `likes` / `matches` / `threads` / `messages` / `meetProposals` / `blocks` / `reports`.
+
+## 남은 콘솔 / 설정 체크리스트
+
+코드만으로는 끝나지 않는 항목입니다. 프로젝트 `petdatinglove`.
+
+### Authentication
+
+- [ ] Sign-in method → **Google** on (지원 이메일)
+- [ ] Sign-in method → **Apple** on
+- [ ] Android: debug/release/Play SHA-1을 `kr.mooca.petdate`에 등록 후 `google-services.json` 재다운로드 (`oauth_client` web `client_type: 3` 포함)
+- [ ] iOS: Google 켠 뒤 `GoogleService-Info.plist` 재다운로드 → `CLIENT_ID` / `REVERSED_CLIENT_ID` → `Info.plist`의 `GIDClientID` + URL scheme
+- [ ] Apple Developer App ID `kr.mooca.petdate` Sign In with Apple
+- [ ] Android Apple: Services ID + Return URL `https://petdatinglove.firebaseapp.com/__/auth/handler`
+
+### Firestore / Functions / Storage
+
+- [ ] Firestore rules·indexes가 `petdatinglove`에 deploy되어 있는지 확인 (`firestore.rules`, `firestore.indexes.json`)
+- [ ] `markUserVerified` callable이 `asia-northeast3`에 live (이미 deploy됨으로 안내됨 — 콘솔에서 한 번 더 확인)
+- [ ] Blaze 플랜 (Functions 2nd gen)
+- [ ] Storage 사진 업로드는 아직 deny-all. 펫 문서는 `pets/{uid}/photo_*` **경로 문자열**만 저장합니다. 미디어 PR 전까지 UI는 placeholder seed입니다.
+- [ ] (선택) 탐색용 대략 위치: `pets.geohash` + `latlng` — 없으면 반경 필터 없이 목록
+
+### App Check / 실기기
+
+- [ ] 실기기에서 Google/Apple 로그인 → A02 → 좋아요가 `PERMISSION_DENIED` 없이 쓰이는지
+- [ ] 미인증 계정으로 like create가 규칙에 막히는지

@@ -34,7 +34,26 @@ class DiscoveryProfile {
   final List<PreferredTimeSlot> preferredTimeSlots;
 
   /// Mock: this profile already sent a spark to the current user.
+  /// Live: derived from likes where toOwnerId == me.
   final bool likedMe;
 
   int get photoCount => photoSeeds.isEmpty ? 1 : photoSeeds.length;
+
+  DiscoveryProfile copyWith({bool? likedMe}) {
+    return DiscoveryProfile(
+      id: id,
+      name: name,
+      ageYears: ageYears,
+      distanceKm: distanceKm,
+      breed: breed,
+      species: species,
+      gender: gender,
+      size: size,
+      tagKeys: tagKeys,
+      bio: bio,
+      photoSeeds: photoSeeds,
+      preferredTimeSlots: preferredTimeSlots,
+      likedMe: likedMe ?? this.likedMe,
+    );
+  }
 }

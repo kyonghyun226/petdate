@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:petdate/copy/app_copy.dart';
+import 'package:petdate/data/social_providers.dart';
+import 'package:petdate/firebase/identity_contract.dart';
 import 'package:petdate/screens/p_profile_wizard/p01_basic_info_step.dart';
 import 'package:petdate/screens/p_profile_wizard/p02_photos_step.dart';
 import 'package:petdate/screens/p_profile_wizard/p03_tags_step.dart';
@@ -57,8 +59,24 @@ class ProfileWizardScreen extends ConsumerWidget {
               child: PrimaryButton(
                 label: isLast ? AppCopy.startSpark : AppCopy.next,
                 onPressed: draft.currentStepValid
-                    ? () {
+                    ? () async {
                         if (isLast) {
+                          final uid = ref.read(sessionProvider).uid;
+                          final goal = ref.read(sessionProvider).goal;
+                          try {
+                            await IdentityVerification.ensureUserDocExists(
+                              uid: uid,
+                              goal: goal,
+                            );
+                            if (uid != null) {
+                              await ref
+                                  .read(socialRepositoryProvider)
+                                  .upsertPet(uid: uid, draft: draft);
+                            }
+                          } catch (_) {
+                            // Offline / rules: session still advances; retry on next edit.
+                          }
+                          if (!context.mounted) return;
                           ref.read(sessionProvider.notifier).completeProfile();
                         } else {
                           notifier.tryNext();

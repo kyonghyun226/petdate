@@ -34,9 +34,7 @@ class C01ChatScreen extends ConsumerWidget {
               separatorBuilder: (_, _) => const Divider(indent: 88),
               itemBuilder: (context, i) {
                 final thread = threads[threads.length - 1 - i];
-                final last = thread.messages.isEmpty
-                    ? ''
-                    : thread.messages.last.text;
+                final last = thread.preview;
                 return ListTile(
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: AppSpacing.lg,

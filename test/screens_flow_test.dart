@@ -401,6 +401,11 @@ void main() {
     expect(IdentityContract.verifiedAtField, 'verifiedAt');
     expect(IdentityContract.likesCollection, 'likes');
     expect(IdentityContract.matchesCollection, 'matches');
+    expect(IdentityContract.petsCollection, 'pets');
+    expect(IdentityContract.threadsCollection, 'threads');
+    expect(IdentityContract.meetProposalsCollection, 'meetProposals');
+    expect(IdentityContract.blocksCollection, 'blocks');
+    expect(IdentityContract.reportsCollection, 'reports');
     expect(IdentityContract.markUserVerifiedCallable, 'markUserVerified');
     expect(IdentityContract.functionsRegion, 'asia-northeast3');
     expect(IdentityContract.failedPrecondition, 'failed-precondition');

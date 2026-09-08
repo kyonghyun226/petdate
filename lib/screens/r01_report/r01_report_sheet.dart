@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:petdate/copy/app_copy.dart';
+import 'package:petdate/data/social_providers.dart';
 import 'package:petdate/models/discovery_profile.dart';
+import 'package:petdate/state/feed_provider.dart';
+import 'package:petdate/state/session_provider.dart';
 import 'package:petdate/theme/tokens.dart';
 import 'package:petdate/widgets/buttons.dart';
 
@@ -11,7 +15,18 @@ Future<void> showR01ReportSheet(
   return showModalBottomSheet<void>(
     context: context,
     showDragHandle: true,
-    builder: (context) => Padding(
+    builder: (context) => _R01ReportSheet(profile: profile),
+  );
+}
+
+class _R01ReportSheet extends ConsumerWidget {
+  const _R01ReportSheet({required this.profile});
+
+  final DiscoveryProfile profile;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.xl,
         AppSpacing.sm,
@@ -31,13 +46,38 @@ Future<void> showR01ReportSheet(
           const SizedBox(height: AppSpacing.xl),
           SecondaryButton(
             label: AppCopy.blockLabel,
-            onPressed: () => Navigator.pop(context),
+            onPressed: () async {
+              final uid = ref.read(sessionProvider).uid;
+              if (uid != null) {
+                await ref.read(socialRepositoryProvider).blockUser(
+                      blockerId: uid,
+                      blockedId: profile.id,
+                    );
+                ref.read(feedProvider.notifier).dismiss(profile.id);
+              }
+              if (context.mounted) Navigator.pop(context);
+            },
           ),
           const SizedBox(height: AppSpacing.md),
           SizedBox(
             height: AppSizes.buttonHeight,
             child: OutlinedButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () async {
+                final uid = ref.read(sessionProvider).uid;
+                if (uid != null) {
+                  await ref.read(socialRepositoryProvider).reportTarget(
+                        reporterId: uid,
+                        targetType: 'pet',
+                        targetId: profile.id,
+                        reason: 'other',
+                      );
+                }
+                if (!context.mounted) return;
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text(AppCopy.reportSent)),
+                );
+              },
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.danger,
                 side: const BorderSide(color: AppColors.danger),
@@ -55,6 +95,6 @@ Future<void> showR01ReportSheet(
           ),
         ],
       ),
-    ),
-  );
+    );
+  }
 }
