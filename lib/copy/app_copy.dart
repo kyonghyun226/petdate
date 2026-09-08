@@ -133,7 +133,22 @@ abstract final class AppCopy {
   static const myLogout = '로그아웃';
   static const settingsTitle = '설정';
   static const settingsRadius = '검색 반경';
-  static const settingsSoon = '알림·계정 설정은 곧 열려요.';
+  static const settingsEnableNotifications = '알림 켜기';
+  static const settingsNotificationsHint = '매칭·새 인사·만남 제안을 알려드려요';
+  static const settingsSoon = '계정 설정은 곧 열려요.';
+
+  /// Shown once, immediately after the first M01 match — never at signup.
+  static const pushPrepromptTitle = '반짝 소식 받으실래요?';
+  static const pushPrepromptBody =
+      '매칭이 되면, 새 인사와 만남 제안을 알려드릴게요. 반려 친구·산책 소식만 보내요.';
+  static const pushPrepromptAllow = '받을게요';
+  static const pushPrepromptDeny = '나중에';
+  static const pushMatchTitle = '반짝 매칭!';
+  static const pushMatchBody = '산책 짝이 생겼어요. 인사해 볼까요?';
+  static const pushMessageTitle = '새 메시지';
+  static const pushMessageBody = '반짝한 친구에게 인사가 도착했어요';
+  static const pushMeetupTitle = '만남 제안';
+  static const pushMeetupBody = '같이 걸을 장소·시간이 도착했어요';
   static const fallbackPetName = '우리 아이';
 
   static const passTooltip = '패스';

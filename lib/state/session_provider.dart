@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:petdate/auth/auth_repository.dart';
 import 'package:petdate/copy/app_copy.dart';
 import 'package:petdate/firebase/identity_contract.dart';
+import 'package:petdate/push/fcm_token_store.dart';
 
 enum AppPhase { splash, onboarding, login, goal, profile, main }
 
@@ -194,6 +195,7 @@ class SessionNotifier extends Notifier<AppSession> {
   }
 
   Future<void> signOut() async {
+    await FcmTokenRemote.deleteOwnTokens();
     await _auth.signOut();
     logout();
   }
