@@ -40,6 +40,12 @@ abstract final class AppSizes {
   static const double buttonHeight = 52;
   static const double tabBarHeight = 64;
   static const double socialIcon = 24;
+  static const double passFab = 56;
+  static const double likeFab = 64;
+  static const double fabGap = 24;
+  static const double cardInset = 32;
+  static const double cardPhotoShare = 0.62;
+  static const double cardPhotoAspect = 4 / 5;
 }
 
 abstract final class AppTypography {

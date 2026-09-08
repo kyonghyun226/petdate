@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:petdate/app.dart';
+import 'package:petdate/constants/app_constants.dart';
 import 'package:petdate/copy/app_copy.dart';
+import 'package:petdate/models/pet_tag.dart';
 import 'package:petdate/models/preferred_time.dart';
 import 'package:petdate/state/profile_provider.dart';
 import 'package:petdate/state/session_provider.dart';
+import 'package:petdate/theme/tokens.dart';
 
 ProviderContainer _loggedIn({UserGoal goal = UserGoal.friend}) {
   final container = ProviderContainer();
@@ -45,6 +48,8 @@ void main() {
 
     expect(find.text(GoalCopy.homeTitle(UserGoal.walk)), findsOneWidget);
     expect(find.textContaining('콩이'), findsWidgets);
+    expect(find.byKey(const ValueKey('home-card-kong')), findsOneWidget);
+    expect(find.byKey(const ValueKey('home-card-bori')), findsNothing);
 
     for (var i = 0; i < 5; i++) {
       await tester.tap(find.byKey(const ValueKey('pass-button')));
@@ -170,6 +175,64 @@ void main() {
     await tester.tap(find.text(AppCopy.myLogout));
     await tester.pumpAndSettle();
     expect(find.text(AppCopy.loginTitle), findsOneWidget);
+  });
+
+  testWidgets('D01 sticky CTA opens M01 then C03', (tester) async {
+    final container = _loggedIn();
+    addTearDown(container.dispose);
+    await _pumpMain(tester, container);
+
+    await tester.tap(find.byKey(const ValueKey('home-card-kong')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('d01-cta')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('d01-cta')));
+    await tester.pumpAndSettle();
+    expect(find.text(AppCopy.matchTitle), findsOneWidget);
+    expect(find.text(AppCopy.safetyBanner), findsOneWidget);
+
+    await tester.tap(find.text(AppCopy.startChat));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(AppCopy.proposeMeetup));
+    await tester.pumpAndSettle();
+    expect(find.text(AppCopy.meetupPlace), findsOneWidget);
+    expect(find.text(AppCopy.meetupTime), findsOneWidget);
+    await tester.tap(find.text(AppCopy.send));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('만남 제안'), findsWidgets);
+  });
+
+  test('P03 tag keys match locked labels', () {
+    const expected = <String, String>{
+      'walk_lover': '산책 좋아해요',
+      'cafe_lover': '카페 가는 걸 즐겨요',
+      'night_active': '밤에 활발해요',
+      'nap_lover': '낮잠 매니아',
+      'careful_with_strangers': '낯선 개 조심해요',
+      'social_butterfly': '친구 많아요',
+      'quiet_meetups': '조용한 만남 좋아요',
+      'park_lover': '공원 러버',
+      'indoor': '실내파',
+      'weekend_morning': '주말 아침형',
+      'after_work_walk': '퇴근 후 산책',
+      'travel_mate': '여행 메이트',
+    };
+    expect(PetTags.all, hasLength(12));
+    expect({for (final tag in PetTags.all) tag.key: tag.label}, expected);
+  });
+
+  test('H01 layout tokens match checklist', () {
+    expect(AppColors.bg, const Color(0xFFFFFFFF));
+    expect(AppConstants.searchRadiusKm, 5);
+    expect(AppSizes.passFab, 56);
+    expect(AppSizes.likeFab, 64);
+    expect(AppSizes.fabGap, 24);
+    expect(AppSizes.cardInset, 32);
+    expect(AppSizes.cardPhotoShare, 0.62);
+    expect(AppSizes.cardPhotoAspect, 4 / 5);
+    expect(AppRadius.card, 20);
+    expect(GoalCopy.homeTitle(UserGoal.friend), '오늘의 반짝 친구');
+    expect(GoalCopy.homeTitle(UserGoal.walk), '같이 산책할 짝');
   });
 
   test('P03 requires 3-8 tags and 1-3 time slots', () {

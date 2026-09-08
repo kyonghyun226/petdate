@@ -22,6 +22,7 @@ class H01HomeScreen extends ConsumerWidget {
     final current = feed.current;
 
     return Scaffold(
+      backgroundColor: AppColors.bg,
       appBar: AppBar(
         title: Text(GoalCopy.homeTitle(goal)),
         automaticallyImplyLeading: false,
@@ -35,80 +36,73 @@ class H01HomeScreen extends ConsumerWidget {
               actionLabel: AppCopy.refresh,
               onAction: ref.read(feedProvider.notifier).refresh,
             )
-          : _CardStack(profile: current, next: _peekNext(feed.remaining)),
+          : _FocusedCard(profile: current),
     );
-  }
-
-  DiscoveryProfile? _peekNext(List<DiscoveryProfile> remaining) {
-    if (remaining.length < 2) return null;
-    return remaining[1];
   }
 }
 
-class _CardStack extends StatelessWidget {
-  const _CardStack({required this.profile, this.next});
+class _FocusedCard extends StatelessWidget {
+  const _FocusedCard({required this.profile});
 
   final DiscoveryProfile profile;
-  final DiscoveryProfile? next;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Expanded(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final width = constraints.maxWidth - AppSpacing.xxl;
-              final height = constraints.maxHeight;
-              return Stack(
-                alignment: Alignment.center,
-                children: [
-                  if (next != null)
-                    Transform.translate(
-                      offset: const Offset(0, 10),
-                      child: Transform.scale(
-                        scale: 0.96,
-                        child: Opacity(
-                          opacity: 0.55,
-                          child: IgnorePointer(
-                            child: SizedBox(
-                              width: width,
-                              height: height,
-                              child: _ProfileCard(profile: next!),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  SizedBox(
-                    width: width,
-                    height: height,
-                    child: _ProfileCard(
-                      profile: profile,
-                      onTap: () => openProfileDetail(context, profile),
-                    ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxWidth = constraints.maxWidth - AppSizes.cardInset;
+        final maxHeight = constraints.maxHeight - AppSpacing.lg;
+        final fitted = _fitCard(maxWidth: maxWidth, maxHeight: maxHeight);
+
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            Align(
+              alignment: Alignment.topCenter,
+              child: Padding(
+                padding: const EdgeInsets.only(top: AppSpacing.sm),
+                child: SizedBox(
+                  width: fitted.width,
+                  height: fitted.height,
+                  child: _ProfileCard(
+                    profile: profile,
+                    photoHeight: fitted.photoHeight,
+                    onTap: () => openProfileDetail(context, profile),
                   ),
-                ],
-              );
-            },
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.xl,
-            AppSpacing.sm,
-            AppSpacing.xl,
-            AppSpacing.lg,
-          ),
-          child: _PassLikeRow(profile: profile),
-        ),
-      ],
+                ),
+              ),
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: AppSpacing.lg,
+              child: _PassLikeFabs(profile: profile),
+            ),
+          ],
+        );
+      },
     );
+  }
+
+  static ({double width, double height, double photoHeight}) _fitCard({
+    required double maxWidth,
+    required double maxHeight,
+  }) {
+    var width = maxWidth;
+    var photoHeight = width / AppSizes.cardPhotoAspect;
+    var height = photoHeight / AppSizes.cardPhotoShare;
+    if (height > maxHeight && maxHeight > 0) {
+      final scale = maxHeight / height;
+      width *= scale;
+      photoHeight *= scale;
+      height = maxHeight;
+    }
+    return (width: width, height: height, photoHeight: photoHeight);
   }
 }
 
-class _PassLikeRow extends ConsumerWidget {
-  const _PassLikeRow({required this.profile});
+class _PassLikeFabs extends ConsumerWidget {
+  const _PassLikeFabs({required this.profile});
 
   final DiscoveryProfile profile;
 
@@ -119,16 +113,16 @@ class _PassLikeRow extends ConsumerWidget {
       children: [
         _RoundAction(
           key: const ValueKey('pass-button'),
-          size: 56,
+          size: AppSizes.passFab,
           filled: false,
           icon: Icons.close_rounded,
           tooltip: AppCopy.passTooltip,
           onTap: () => SparkActions.pass(ref, profile),
         ),
-        const SizedBox(width: 24),
+        const SizedBox(width: AppSizes.fabGap),
         _RoundAction(
           key: const ValueKey('like-button'),
-          size: 64,
+          size: AppSizes.likeFab,
           filled: true,
           icon: Icons.auto_awesome,
           tooltip: AppCopy.likeTooltip,
@@ -166,8 +160,8 @@ class _RoundAction extends StatelessWidget {
               ? BorderSide.none
               : const BorderSide(color: AppColors.border, width: 1.5),
         ),
-        elevation: filled ? 2 : 0,
-        shadowColor: AppColors.primary.withValues(alpha: 0.35),
+        elevation: filled ? 3 : 1,
+        shadowColor: Colors.black.withValues(alpha: 0.16),
         child: InkWell(
           customBorder: const CircleBorder(),
           onTap: onTap,
@@ -189,80 +183,84 @@ class _RoundAction extends StatelessWidget {
 class _ProfileCard extends StatelessWidget {
   const _ProfileCard({
     required this.profile,
+    required this.photoHeight,
     this.onTap,
   });
 
   final DiscoveryProfile profile;
+  final double photoHeight;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     return Material(
       color: AppColors.surface,
-      elevation: 6,
-      shadowColor: Colors.black.withValues(alpha: 0.12),
+      elevation: 4,
+      shadowColor: Colors.black.withValues(alpha: 0.10),
       borderRadius: BorderRadius.circular(AppRadius.card),
-        child: InkWell(
-          key: ValueKey('home-card-${profile.id}'),
-          onTap: onTap,
+      child: InkWell(
+        key: ValueKey('home-card-${profile.id}'),
+        onTap: onTap,
         borderRadius: BorderRadius.circular(AppRadius.card),
         child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(
-                flex: 62,
-                child: ClipRRect(
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(AppRadius.card),
-                  ),
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              height: photoHeight,
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(AppRadius.card),
+                ),
+                child: AspectRatio(
+                  aspectRatio: AppSizes.cardPhotoAspect,
                   child: PetPhoto(
                     seed: profile.photoSeeds.first,
                     iconSize: 72,
                   ),
                 ),
               ),
-              Expanded(
-                flex: 38,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.lg,
-                    AppSpacing.md,
-                    AppSpacing.lg,
-                    AppSpacing.md,
-                  ),
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${profile.name}  ·  ${profile.ageYears}살  ·  ${_distance(profile.distanceKm)}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppTypography.title.copyWith(fontSize: 18),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.lg,
+                  AppSpacing.md,
+                  AppSpacing.lg,
+                  AppSpacing.md,
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${profile.name}  ·  ${profile.ageYears}살  ·  ${_distance(profile.distanceKm)}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.title.copyWith(fontSize: 18),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      TagKeyWrap(keys: profile.tagKeys, limit: 3, tiny: true),
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(
+                        profile.bio,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.caption.copyWith(
+                          color: AppColors.text,
+                          fontSize: 13,
                         ),
-                        const SizedBox(height: AppSpacing.sm),
-                        TagKeyWrap(keys: profile.tagKeys, limit: 3, tiny: true),
-                        const SizedBox(height: AppSpacing.sm),
-                        Text(
-                          profile.bio,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppTypography.caption.copyWith(
-                            color: AppColors.text,
-                            fontSize: 13,
-                          ),
-                        ),
-                        const SizedBox(height: AppSpacing.sm),
-                        TimeSlotChips(
-                          slots: profile.preferredTimeSlots,
-                          tiny: true,
-                        ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      TimeSlotChips(
+                        slots: profile.preferredTimeSlots,
+                        tiny: true,
+                      ),
+                    ],
                   ),
                 ),
               ),
-            ],
+            ),
+          ],
         ),
       ),
     );

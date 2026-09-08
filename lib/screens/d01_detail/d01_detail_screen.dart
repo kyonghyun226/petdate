@@ -143,6 +143,8 @@ class _D01DetailScreenState extends ConsumerState<D01DetailScreen> {
           ),
           Material(
             color: AppColors.surface,
+            elevation: 8,
+            shadowColor: Colors.black.withValues(alpha: 0.08),
             child: SafeArea(
               top: false,
               child: Padding(
@@ -153,6 +155,7 @@ class _D01DetailScreenState extends ConsumerState<D01DetailScreen> {
                   AppSpacing.lg,
                 ),
                 child: PrimaryButton(
+                  key: const ValueKey('d01-cta'),
                   label: GoalCopy.detailCta(goal, profile.name),
                   onPressed: () async {
                     final matched = SparkActions.like(ref, profile);
