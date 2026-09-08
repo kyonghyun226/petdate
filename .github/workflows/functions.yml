@@ -1,4 +1,4 @@
-# Typecheck + unit tests for Cloud Functions (A02 verifiedAt).
+# Typecheck + unit tests for Cloud Functions (A02 verifiedAt + FCM).
 # No Firebase service-account secrets; does not deploy.
 
 name: Functions

@@ -433,4 +433,84 @@ describe('petdate official MVP firestore.rules', () => {
       await assertFails(deleteDoc(doc(db(ALICE), 'reports', 'r1')));
     });
   });
+
+  describe('users/{uid}/fcmTokens/{tokenHash}', () => {
+    const TOKEN_HASH =
+      '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+    const FCM_TOKEN = 'fcm-device-token-value-at-least-32ch';
+
+    function tokenDoc(extra = {}) {
+      return {
+        token: FCM_TOKEN,
+        platform: 'ios',
+        updatedAt: serverTimestamp(),
+        ...extra,
+      };
+    }
+
+    function tokenRef(uid, hash = TOKEN_HASH) {
+      return doc(db(uid), 'users', uid, 'fcmTokens', hash);
+    }
+
+    it('allows owner create/read/update/delete and denies peers', async () => {
+      await assertSucceeds(setDoc(tokenRef(ALICE), tokenDoc()));
+      await assertSucceeds(getDoc(tokenRef(ALICE)));
+      await assertSucceeds(
+        getDocs(collection(db(ALICE), 'users', ALICE, 'fcmTokens')),
+      );
+      await assertSucceeds(
+        setDoc(tokenRef(ALICE), tokenDoc({ platform: 'android' })),
+      );
+      await assertFails(
+        getDoc(doc(db(BOB), 'users', ALICE, 'fcmTokens', TOKEN_HASH)),
+      );
+      await assertFails(
+        getDocs(collection(db(BOB), 'users', ALICE, 'fcmTokens')),
+      );
+      await assertFails(
+        setDoc(
+          doc(db(BOB), 'users', ALICE, 'fcmTokens', TOKEN_HASH),
+          tokenDoc(),
+        ),
+      );
+      await assertFails(
+        getDoc(doc(unauth(), 'users', ALICE, 'fcmTokens', TOKEN_HASH)),
+      );
+      await assertSucceeds(deleteDoc(tokenRef(ALICE)));
+    });
+
+    it('rejects raw token ids, extra fields, and invalid payloads', async () => {
+      await assertFails(
+        setDoc(
+          doc(db(ALICE), 'users', ALICE, 'fcmTokens', FCM_TOKEN),
+          tokenDoc(),
+        ),
+      );
+      await assertFails(
+        setDoc(
+          doc(db(ALICE), 'users', ALICE, 'fcmTokens', TOKEN_HASH.toUpperCase()),
+          tokenDoc(),
+        ),
+      );
+      await assertFails(
+        setDoc(tokenRef(ALICE), tokenDoc({ platform: 'web' })),
+      );
+      await assertFails(
+        setDoc(tokenRef(ALICE), tokenDoc({ token: 'short' })),
+      );
+      await assertFails(
+        setDoc(tokenRef(ALICE), tokenDoc({ extra: true })),
+      );
+      await assertFails(
+        setDoc(tokenRef(ALICE), {
+          token: FCM_TOKEN,
+          platform: 'ios',
+        }),
+      );
+      await assertSucceeds(setDoc(tokenRef(ALICE), tokenDoc()));
+      await assertFails(
+        updateDoc(tokenRef(ALICE), { platform: 'web' }),
+      );
+    });
+  });
 });

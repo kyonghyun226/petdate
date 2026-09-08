@@ -36,6 +36,7 @@ rules_version = '2';
 //   meetProposals:   matchId == {matchId}
 //   blocks:          blockerId == me
 //   reports:         no client read (Admin SDK only)
+//   fcmTokens:       owner-only users/{me}/fcmTokens
 // ===============================================================
 //
 // Collection: users
@@ -128,6 +129,16 @@ rules_version = '2';
 //           'safety' | 'other'
 // Create: reporterId == auth.uid. No client read/update/delete
 // (Admin SDK only).
+//
+// Subcollection: users/{uid}/fcmTokens/{tokenHash}
+// Document ID: tokenHash = sha256 hex of `token` (64 lowercase
+//   [a-f0-9]). Do NOT use the raw FCM token as the doc id.
+// Fields:
+//   - token: string 32–4096 (required)
+//   - platform: 'ios' | 'android' (required)
+//   - updatedAt: timestamp == request.time on create/update
+// Read/create/update/delete: owner uid only. Peers cannot read
+// another user's tokens (Admin SDK / send Functions may).
 //
 // Fixed 12 walk/cafe tags (keys; labels live in the app):
 //   walk_lover, cafe_lover, night_active, nap_lover,
@@ -411,6 +422,23 @@ service cloud.firestore {
         && data.blockerId != data.blockedId;
     }
 
+    function isSha256TokenHash(tokenHash) {
+      return tokenHash is string
+        && tokenHash.size() == 64
+        && tokenHash.matches('^[a-f0-9]{64}$');
+    }
+
+    function isValidFcmToken(data, tokenHash) {
+      return data.keys().hasOnly(['token', 'platform', 'updatedAt'])
+        && data.keys().hasAll(['token', 'platform', 'updatedAt'])
+        && data.token is string
+        && data.token.size() >= 32
+        && data.token.size() <= 4096
+        && data.token != tokenHash
+        && data.platform in ['ios', 'android']
+        && data.updatedAt is timestamp;
+    }
+
     function isValidReport(data) {
       return data.keys().hasOnly([
           'reporterId', 'targetType', 'targetId', 'reason', 'createdAt'
@@ -466,6 +494,17 @@ service cloud.firestore {
         );
 
       allow delete: if isOwner(userId);
+
+      match /fcmTokens/{tokenHash} {
+        allow read: if isOwner(userId);
+
+        allow create, update: if isOwner(userId)
+          && isSha256TokenHash(tokenHash)
+          && isValidFcmToken(request.resource.data, tokenHash)
+          && isServerNow(request.resource.data.updatedAt);
+
+        allow delete: if isOwner(userId);
+      }
     }
 
     // -----------------------------------------------------------
