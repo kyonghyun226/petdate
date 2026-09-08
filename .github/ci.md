@@ -43,6 +43,8 @@ Cloud Functions (no deploy):
 npm ci --prefix functions
 npm test --prefix functions
 npm run build --prefix functions
+# Optional Admin-write check (needs the Firestore emulator):
+npm run test:emulator --prefix functions
 ```
 
 ## Not in this pipeline (follow-up)

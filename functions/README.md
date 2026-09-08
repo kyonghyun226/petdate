@@ -92,6 +92,9 @@ This repo does **not** auto-deploy functions (no service-account CI).
 npm ci --prefix functions
 npm test --prefix functions
 npm run build --prefix functions
+
+# Optional: Admin write against the Firestore emulator
+npm run test:emulator --prefix functions
 ```
 
 ```bash
