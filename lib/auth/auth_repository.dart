@@ -49,8 +49,11 @@ final authStateChangesProvider = StreamProvider<AuthUser?>((ref) {
   return ref.watch(authRepositoryProvider).authStateChanges();
 });
 
+/// Reactive AuthUser. Watches [authStateChangesProvider] so widgets rebuild,
+/// and always reads [AuthRepository.currentUser] as the source of truth.
 final currentAuthUserProvider = Provider<AuthUser?>((ref) {
-  return ref.watch(authRepositoryProvider).currentUser;
+  ref.watch(authStateChangesProvider);
+  return ref.read(authRepositoryProvider).currentUser;
 });
 
 class FirebaseAuthRepository implements AuthRepository {

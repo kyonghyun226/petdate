@@ -34,9 +34,21 @@ class FakeAuthRepository implements AuthRepository {
   AuthUser? get currentUser => signedInUser;
 
   @override
-  Stream<AuthUser?> authStateChanges() async* {
-    yield signedInUser;
-    yield* _controller.stream;
+  Stream<AuthUser?> authStateChanges() {
+    return Stream<AuthUser?>.multi((listener) {
+      listener.add(signedInUser);
+      final sub = _controller.stream.listen(
+        listener.add,
+        onError: listener.addError,
+        onDone: listener.close,
+      );
+      listener
+        ..onPause = sub.pause
+        ..onResume = sub.resume
+        ..onCancel = () async {
+          await sub.cancel();
+        };
+    });
   }
 
   @override
