@@ -1,1 +1,46 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"petdatinglove","appId":"1:503588097549:android:544b912c6b1a1c1018cf44","fileOutput":"android/app/google-services.json"}},"ios":{"default":{"projectId":"petdatinglove","appId":"1:503588097549:ios:6d7d62c34dd0f68618cf44","uploadDebugSymbols":false,"fileOutput":"ios/Runner/GoogleService-Info.plist"}},"dart":{"lib/firebase_options.dart":{"projectId":"petdatinglove","configurations":{"android":"1:503588097549:android:544b912c6b1a1c1018cf44","ios":"1:503588097549:ios:6d7d62c34dd0f68618cf44"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "petdatinglove",
+          "appId": "1:503588097549:android:544b912c6b1a1c1018cf44",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "ios": {
+        "default": {
+          "projectId": "petdatinglove",
+          "appId": "1:503588097549:ios:6d7d62c34dd0f68618cf44",
+          "uploadDebugSymbols": false,
+          "fileOutput": "ios/Runner/GoogleService-Info.plist"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "petdatinglove",
+          "configurations": {
+            "android": "1:503588097549:android:544b912c6b1a1c1018cf44",
+            "ios": "1:503588097549:ios:6d7d62c34dd0f68618cf44"
+          }
+        }
+      }
+    }
+  },
+  "firestore": {
+    "database": "(default)",
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "emulators": {
+    "firestore": {
+      "port": 8080
+    },
+    "ui": {
+      "enabled": false
+    }
+  }
+}

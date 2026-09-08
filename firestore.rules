@@ -1,0 +1,862 @@
+rules_version = '2';
+
+// ===============================================================
+// 반짝산책 (petdate) — MVP Firestore security rules
+// Project: petdatinglove
+//
+// CONTRACT FOR APP WIRING (not inferred from mock-only UI)
+// These rules are the canonical MVP schema. Feature code on main
+// does not yet read/write Firestore. PR #2 mocks and PR #3 Auth
+// uid are treated as hypotheses; this file is the contract.
+//
+// Identity: Firebase Auth uid == document owner / participant id.
+// Unauthenticated access is denied. There is no public unauth read.
+// Unknown collections fall through to match /{document=**} deny.
+//
+// PII split (Firestore cannot hide fields inside a readable doc):
+//   users/{uid}  — private account. Owner read/write only.
+//   pets/{uid}   — 1 pet per account (doc id == owner uid).
+//                  Authenticated read of published pets for explore.
+//                  No email, phone, or legal name on this document.
+//
+// Query shapes the rules actually allow (client MUST constrain):
+//   pets:     where isPublished == true  [+ optional species/goal]
+//   likes:    where fromUid == auth.uid  OR  where toUid == auth.uid
+//   passes:   where fromUid == auth.uid
+//   matches:  where participantIds array-contains auth.uid
+//   chats:    where participantIds array-contains auth.uid
+//   reports:  where reporterUid == auth.uid
+//   blocks:   where blockerUid == auth.uid
+//
+// Blocks are enforced on WRITES (like / match / message / meetup).
+// They are NOT evaluated on pet/chat list reads — a single blocked
+// neighbor would fail the entire query. Filter blocked uids in-app.
+//
+// Mutual match is created by the client (batch with the second like).
+// Use existsAfter() so the like in the same batch counts.
+// Cloud Functions are out of scope.
+//
+// Timestamps: clients MUST use FieldValue.serverTimestamp() for
+// createdAt / updatedAt / lastMessageAt. Rules compare to request.time.
+// ===============================================================
+//
+// Collection: users
+// Document ID: {uid} == request.auth.uid
+// Fields:
+//   - uid: string (required, immutable, == doc id == auth.uid)
+//   - createdAt: timestamp (required, immutable, == request.time on create)
+//   - updatedAt: timestamp (required, == request.time on write)
+//   - onboardingCompleted: bool (required)
+//   - profileCompleted: bool (required)
+//   - goal: 'friend' | 'walk' (optional until O01)
+//
+// Collection: pets
+// Document ID: {uid} == owner Firebase uid (exactly 1 pet / account)
+// Fields:
+//   - ownerId: string (required, immutable, == doc id == auth.uid)
+//   - name: string 1–40 (required when published)
+//   - species: 'dog' | 'cat' (required when published)
+//   - breed: string 1–40 (required when published)
+//   - gender: 'male' | 'female' (required when published)
+//   - size: 'small' | 'medium' | 'large' (required when published)
+//   - ageYears: int 0–40 (required when published)
+//   - birthYear: int 1990–2100 (optional; if set, birthMonth required)
+//   - birthMonth: int 1–12 (optional; if set, birthYear required)
+//   - tags: list<string> 0–8 draft / 3–8 published; item 1–30 chars
+//   - bio: string 0–140
+//   - photoPaths: list<string> Storage paths pets/{ownerId}/{file}
+//                 0–3 draft / 1–3 published
+//   - primaryPhotoIndex: int (0 when empty; else < photoPaths.size())
+//   - preferredTimeSlots: list of weekdayEvening | weekendMorning |
+//                         weekendAfternoon; 0–3 draft / 1–3 published
+//   - goal: 'friend' | 'walk' (required when published)
+//   - approxLocation: geopoint (optional; explore radius, not an address)
+//   - geohash: string 1–12 [0-9a-z] (optional)
+//   - isPublished: bool
+//   - createdAt / updatedAt: timestamp (same rules as users)
+//
+// Collection: likes
+// Document ID: {fromUid}_{toUid}
+// Fields: fromUid, toUid, createdAt
+//   Create: fromUid == auth.uid, from != to, target pet published,
+//           neither user blocked the other. No updates. Delete
+//           (unlike) only by fromUid when no active match exists.
+//
+// Collection: passes  (H01 dismiss / "패스")
+// Document ID: {fromUid}_{toUid}
+// Fields: fromUid, toUid, createdAt
+//   Owner (fromUid) only. Target cannot read that they were passed.
+//
+// Collection: matches
+// Document ID: {minUid}_{maxUid} lexicographic pair
+// Fields:
+//   - participantIds: [minUid, maxUid] exactly 2, sorted
+//   - unmatched: bool (false on create)
+//   - createdAt / updatedAt: timestamp
+//   Create: requester is a participant AND both like docs exist
+//           after the batch AND neither side is blocked.
+//   Update: participant may set unmatched true, or false again
+//           only if mutual likes still exist (rematch).
+//
+// Collection: chats
+// Document ID: same as matches/{pairId}
+// Fields:
+//   - participantIds: [minUid, maxUid]
+//   - lastMessagePreview: string 0–140
+//   - lastMessageAt: timestamp
+//   - lastSenderId: string uid (optional until first message)
+//   - createdAt / updatedAt: timestamp
+//   Create: only if the match doc exists after the batch.
+//   Update: participant, preview / lastMessageAt / lastSenderId /
+//           updatedAt only, and only while match.unmatched == false.
+//
+// Subcollection: chats/{chatId}/messages/{messageId}
+// Fields:
+//   - senderId: string == auth.uid
+//   - kind: 'text' | 'meetup'   (no client-written 'system')
+//   - text: string (text: 1–1000; meetup: 0–200)
+//   - meetupId: string (required when kind == meetup)
+//   - createdAt: timestamp
+//   Immutable after create. Participants read. Active match required
+//   to create. Meetup messages must point at a meetup created in the
+//   same batch (getAfter).
+//
+// Subcollection: chats/{chatId}/meetups/{meetupId}
+// Fields:
+//   - proposerId, receiverId: participant uids, proposer == author
+//   - place: 'park' | 'petCafe' | 'other'
+//   - placeDetail: string 0–80 (1–80 when place == other)
+//   - timeLabel: string 1–80
+//   - memo: string 0–140
+//   - status: pending | accepted | declined | countered | cancelled
+//   - createdAt / updatedAt: timestamp
+//   Transitions:
+//     pending + proposer: edit content, or -> cancelled
+//     pending + receiver: -> accepted | declined | countered
+//                         (content unchanged; counter creates a new doc)
+//     accepted + either: -> cancelled
+//
+// Collection: blocks
+// Document ID: {blockerUid}_{blockedUid}
+// Fields: blockerUid, blockedUid, createdAt
+//   Blocker create/read/delete. No update.
+//
+// Collection: reports
+// Document ID: auto-id
+// Fields:
+//   - reporterUid, targetUid: string uids, reporter != target
+//   - targetType: 'user' | 'pet' | 'chat' | 'message'
+//   - reason: 'spam' | 'harassment' | 'fake' | 'inappropriate' |
+//             'safety' | 'other'
+//   - details: string 0–500
+//   - createdAt: timestamp
+//   Create + owner read. No update/delete (moderation is Admin SDK).
+//
+// ===============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // -----------------------------------------------------------
+    // Helper functions
+    // -----------------------------------------------------------
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.uid;
+    }
+
+    function uidUnchanged() {
+      return !('uid' in request.resource.data) ||
+        request.resource.data.uid == request.auth.uid;
+    }
+
+    function uidNotModified() {
+      return !('uid' in request.resource.data) ||
+        request.resource.data.uid == resource.data.uid;
+    }
+
+    function isValidUid(value) {
+      return value is string && value.size() >= 16 && value.size() <= 128;
+    }
+
+    function isServerNow(value) {
+      return value is timestamp && value == request.time;
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function areImmutableFieldsUnchanged(fields) {
+      return !request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny(fields);
+    }
+
+    function validStringLength(field, minLen, maxLen) {
+      return request.resource.data[field] is string
+        && request.resource.data[field].size() >= minLen
+        && request.resource.data[field].size() <= maxLen;
+    }
+
+    function isBoundedString(value, maxLen) {
+      return value is string && value.size() <= maxLen;
+    }
+
+    function isNonEmptyString(value, maxLen) {
+      return value is string && value.size() > 0 && value.size() <= maxLen;
+    }
+
+    function isGoal(value) {
+      return value in ['friend', 'walk'];
+    }
+
+    function pairId(a, b) {
+      return a < b ? a + '_' + b : b + '_' + a;
+    }
+
+    function likePath(fromUid, toUid) {
+      return /databases/$(database)/documents/likes/$(fromUid + '_' + toUid);
+    }
+
+    function blockPath(a, b) {
+      return /databases/$(database)/documents/blocks/$(a + '_' + b);
+    }
+
+    function matchPath(a, b) {
+      return /databases/$(database)/documents/matches/$(pairId(a, b));
+    }
+
+    function chatPath(chatId) {
+      return /databases/$(database)/documents/chats/$(chatId);
+    }
+
+    function meetupPath(chatId, meetupId) {
+      return /databases/$(database)/documents/chats/$(chatId)/meetups/$(meetupId);
+    }
+
+    function petPath(uid) {
+      return /databases/$(database)/documents/pets/$(uid);
+    }
+
+    function isEitherBlocked(a, b) {
+      return exists(blockPath(a, b)) || exists(blockPath(b, a));
+    }
+
+    function publishedPetExists(uid) {
+      return exists(petPath(uid))
+        && get(petPath(uid)).data.isPublished == true
+        && get(petPath(uid)).data.ownerId == uid;
+    }
+
+    function mutualLikesAfter(a, b) {
+      return existsAfter(likePath(a, b)) && existsAfter(likePath(b, a));
+    }
+
+    function isPairDocId(docId, a, b) {
+      return isValidUid(a) && isValidUid(b) && a < b && docId == a + '_' + b;
+    }
+
+    function isChatParticipant(chatId) {
+      return isAuthenticated()
+        && exists(chatPath(chatId))
+        && request.auth.uid in get(chatPath(chatId)).data.participantIds;
+    }
+
+    function activeMatch(chatId) {
+      return exists(/databases/$(database)/documents/matches/$(chatId))
+        && get(/databases/$(database)/documents/matches/$(chatId)).data.unmatched == false;
+    }
+
+    function validTagItem(item) {
+      return item is string && item.size() >= 1 && item.size() <= 30;
+    }
+
+    function validTags(tags, minN, maxN) {
+      return tags is list
+        && tags.size() >= minN
+        && tags.size() <= maxN
+        && (tags.size() < 1 || validTagItem(tags[0]))
+        && (tags.size() < 2 || validTagItem(tags[1]))
+        && (tags.size() < 3 || validTagItem(tags[2]))
+        && (tags.size() < 4 || validTagItem(tags[3]))
+        && (tags.size() < 5 || validTagItem(tags[4]))
+        && (tags.size() < 6 || validTagItem(tags[5]))
+        && (tags.size() < 7 || validTagItem(tags[6]))
+        && (tags.size() < 8 || validTagItem(tags[7]));
+    }
+
+    function validTimeSlot(item) {
+      return item in ['weekdayEvening', 'weekendMorning', 'weekendAfternoon'];
+    }
+
+    function validTimeSlots(slots, minN, maxN) {
+      return slots is list
+        && slots.size() >= minN
+        && slots.size() <= maxN
+        && (slots.size() < 1 || validTimeSlot(slots[0]))
+        && (slots.size() < 2 || validTimeSlot(slots[1]))
+        && (slots.size() < 3 || validTimeSlot(slots[2]));
+    }
+
+    function validPhotoPath(ownerId, item) {
+      let parts = item is string ? item.split('/') : [];
+      return item is string
+        && item.size() >= 1
+        && item.size() <= 256
+        && parts.size() == 3
+        && parts[0] == 'pets'
+        && parts[1] == ownerId
+        && parts[2].size() >= 1
+        && parts[2].size() <= 128;
+    }
+
+    function validPhotoPaths(ownerId, paths, minN, maxN) {
+      return paths is list
+        && paths.size() >= minN
+        && paths.size() <= maxN
+        && (paths.size() < 1 || validPhotoPath(ownerId, paths[0]))
+        && (paths.size() < 2 || validPhotoPath(ownerId, paths[1]))
+        && (paths.size() < 3 || validPhotoPath(ownerId, paths[2]));
+    }
+
+    function optionalBirth(data) {
+      return (
+          !('birthYear' in data) && !('birthMonth' in data)
+        ) || (
+          data.birthYear is int
+          && data.birthYear >= 1990
+          && data.birthYear <= 2100
+          && data.birthMonth is int
+          && data.birthMonth >= 1
+          && data.birthMonth <= 12
+        );
+    }
+
+    function optionalGeo(data) {
+      return (
+          !('approxLocation' in data) && !('geohash' in data)
+        ) || (
+          data.approxLocation is latlng
+          && data.geohash is string
+          && data.geohash.size() >= 1
+          && data.geohash.size() <= 12
+        );
+    }
+
+    // -----------------------------------------------------------
+    // Domain validators (used on BOTH create and update)
+    // -----------------------------------------------------------
+
+    function isValidUser(data) {
+      return data.keys().hasOnly([
+          'uid', 'createdAt', 'updatedAt',
+          'onboardingCompleted', 'profileCompleted', 'goal'
+        ])
+        && data.keys().hasAll([
+          'uid', 'createdAt', 'updatedAt',
+          'onboardingCompleted', 'profileCompleted'
+        ])
+        && isValidUid(data.uid)
+        && data.uid == request.auth.uid
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && data.onboardingCompleted is bool
+        && data.profileCompleted is bool
+        && (!('goal' in data) || isGoal(data.goal));
+    }
+
+    function isValidPet(data) {
+      let published = data.isPublished == true;
+      let minTags = published ? 3 : 0;
+      let minPhotos = published ? 1 : 0;
+      let minSlots = published ? 1 : 0;
+      return data.keys().hasOnly([
+          'ownerId', 'name', 'species', 'breed', 'gender', 'size',
+          'ageYears', 'birthYear', 'birthMonth', 'tags', 'bio',
+          'photoPaths', 'primaryPhotoIndex', 'preferredTimeSlots',
+          'goal', 'approxLocation', 'geohash', 'isPublished',
+          'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasAll([
+          'ownerId', 'tags', 'bio', 'photoPaths', 'primaryPhotoIndex',
+          'preferredTimeSlots', 'isPublished', 'createdAt', 'updatedAt'
+        ])
+        && isValidUid(data.ownerId)
+        && data.ownerId == request.auth.uid
+        && isBoundedString(data.bio, 140)
+        && data.isPublished is bool
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && data.primaryPhotoIndex is int
+        && data.primaryPhotoIndex >= 0
+        && data.primaryPhotoIndex <= 2
+        && validTags(data.tags, minTags, 8)
+        && validPhotoPaths(data.ownerId, data.photoPaths, minPhotos, 3)
+        && (
+          data.photoPaths.size() == 0
+            ? data.primaryPhotoIndex == 0
+            : data.primaryPhotoIndex < data.photoPaths.size()
+        )
+        && validTimeSlots(data.preferredTimeSlots, minSlots, 3)
+        && optionalBirth(data)
+        && optionalGeo(data)
+        && (
+          published
+            ? (
+                isNonEmptyString(data.name, 40)
+                && data.species in ['dog', 'cat']
+                && isNonEmptyString(data.breed, 40)
+                && data.gender in ['male', 'female']
+                && data.size in ['small', 'medium', 'large']
+                && data.ageYears is int
+                && data.ageYears >= 0
+                && data.ageYears <= 40
+                && isGoal(data.goal)
+              )
+            : (
+                (!('name' in data) || isNonEmptyString(data.name, 40))
+                && (!('species' in data) || data.species in ['dog', 'cat'])
+                && (!('breed' in data) || isNonEmptyString(data.breed, 40))
+                && (!('gender' in data) || data.gender in ['male', 'female'])
+                && (!('size' in data) || data.size in ['small', 'medium', 'large'])
+                && (!('ageYears' in data)
+                    || (data.ageYears is int
+                      && data.ageYears >= 0
+                      && data.ageYears <= 40))
+                && (!('goal' in data) || isGoal(data.goal))
+              )
+        );
+    }
+
+    function isValidLike(data) {
+      return data.keys().hasOnly(['fromUid', 'toUid', 'createdAt'])
+        && isValidUid(data.fromUid)
+        && isValidUid(data.toUid)
+        && data.fromUid == request.auth.uid
+        && data.fromUid != data.toUid
+        && data.createdAt is timestamp;
+    }
+
+    function isValidPass(data) {
+      return isValidLike(data);
+    }
+
+    function isValidMatch(data) {
+      return data.keys().hasOnly([
+          'participantIds', 'unmatched', 'createdAt', 'updatedAt'
+        ])
+        && data.participantIds is list
+        && data.participantIds.size() == 2
+        && isValidUid(data.participantIds[0])
+        && isValidUid(data.participantIds[1])
+        && data.participantIds[0] < data.participantIds[1]
+        && data.unmatched is bool
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidChat(data) {
+      return data.keys().hasOnly([
+          'participantIds', 'lastMessagePreview', 'lastMessageAt',
+          'lastSenderId', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasAll([
+          'participantIds', 'lastMessagePreview', 'lastMessageAt',
+          'createdAt', 'updatedAt'
+        ])
+        && data.participantIds is list
+        && data.participantIds.size() == 2
+        && isValidUid(data.participantIds[0])
+        && isValidUid(data.participantIds[1])
+        && data.participantIds[0] < data.participantIds[1]
+        && isBoundedString(data.lastMessagePreview, 140)
+        && data.lastMessageAt is timestamp
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && (
+          !('lastSenderId' in data)
+          || (isValidUid(data.lastSenderId)
+            && data.lastSenderId in data.participantIds)
+        );
+    }
+
+    function isValidMessage(data) {
+      return data.keys().hasOnly([
+          'senderId', 'kind', 'text', 'meetupId', 'createdAt'
+        ])
+        && data.keys().hasAll(['senderId', 'kind', 'text', 'createdAt'])
+        && data.senderId == request.auth.uid
+        && isValidUid(data.senderId)
+        && data.kind in ['text', 'meetup']
+        && data.createdAt is timestamp
+        && (
+          data.kind == 'text'
+            ? (isNonEmptyString(data.text, 1000) && !('meetupId' in data))
+            : (isBoundedString(data.text, 200)
+                && 'meetupId' in data
+                && isNonEmptyString(data.meetupId, 128))
+        );
+    }
+
+    function isValidMeetup(data) {
+      return data.keys().hasOnly([
+          'proposerId', 'receiverId', 'place', 'placeDetail',
+          'timeLabel', 'memo', 'status', 'createdAt', 'updatedAt'
+        ])
+        && isValidUid(data.proposerId)
+        && isValidUid(data.receiverId)
+        && data.proposerId != data.receiverId
+        && data.place in ['park', 'petCafe', 'other']
+        && data.timeLabel is string
+        && data.timeLabel.size() >= 1
+        && data.timeLabel.size() <= 80
+        && isBoundedString(data.memo, 140)
+        && data.status in [
+          'pending', 'accepted', 'declined', 'countered', 'cancelled'
+        ]
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && (
+          data.place == 'other'
+            ? isNonEmptyString(data.placeDetail, 80)
+            : isBoundedString(data.placeDetail, 80)
+        );
+    }
+
+    function isValidBlock(data) {
+      return data.keys().hasOnly(['blockerUid', 'blockedUid', 'createdAt'])
+        && isValidUid(data.blockerUid)
+        && isValidUid(data.blockedUid)
+        && data.blockerUid == request.auth.uid
+        && data.blockerUid != data.blockedUid
+        && data.createdAt is timestamp;
+    }
+
+    function isValidReport(data) {
+      return data.keys().hasOnly([
+          'reporterUid', 'targetUid', 'targetType',
+          'reason', 'details', 'createdAt'
+        ])
+        && isValidUid(data.reporterUid)
+        && isValidUid(data.targetUid)
+        && data.reporterUid == request.auth.uid
+        && data.reporterUid != data.targetUid
+        && data.targetType in ['user', 'pet', 'chat', 'message']
+        && data.reason in [
+          'spam', 'harassment', 'fake', 'inappropriate', 'safety', 'other'
+        ]
+        && isBoundedString(data.details, 500)
+        && data.createdAt is timestamp;
+    }
+
+    function validMeetupTransition() {
+      let from = resource.data.status;
+      let to = request.resource.data.status;
+      let isProposer = request.auth.uid == resource.data.proposerId;
+      let isReceiver = request.auth.uid == resource.data.receiverId;
+      let contentUnchanged = !request.resource.data.diff(resource.data)
+        .affectedKeys()
+        .hasAny(['place', 'placeDetail', 'timeLabel', 'memo']);
+      return
+        (from == 'pending' && to == 'pending' && isProposer)
+        || (from == 'pending' && to == 'cancelled' && isProposer
+            && contentUnchanged)
+        || (from == 'pending'
+            && to in ['accepted', 'declined', 'countered']
+            && isReceiver && contentUnchanged)
+        || (from == 'accepted' && to == 'cancelled'
+            && (isProposer || isReceiver) && contentUnchanged);
+    }
+
+    // -----------------------------------------------------------
+    // users/{uid} — private account
+    // -----------------------------------------------------------
+
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+
+      allow create: if isOwner(userId)
+        && isValidUid(userId)
+        && isValidUser(request.resource.data)
+        && uidUnchanged()
+        && request.resource.data.uid == userId
+        && isServerNow(request.resource.data.createdAt)
+        && isServerNow(request.resource.data.updatedAt);
+
+      allow update: if isOwner(userId)
+        && isValidUser(request.resource.data)
+        && uidNotModified()
+        && isDocOwner()
+        && request.resource.data.uid == userId
+        && request.resource.data.uid == resource.data.uid
+        && areImmutableFieldsUnchanged(['uid', 'createdAt'])
+        && isServerNow(request.resource.data.updatedAt);
+
+      allow delete: if isOwner(userId);
+    }
+
+    // -----------------------------------------------------------
+    // pets/{uid} — public explore profile (no PII)
+    // -----------------------------------------------------------
+
+    match /pets/{userId} {
+      // get: owner may read a draft; any signed-in user may read a published card.
+      // list: only published docs so explore queries (isPublished == true) succeed.
+      allow get: if isOwner(userId)
+        || (isAuthenticated() && resource.data.isPublished == true);
+      allow list: if isAuthenticated() && resource.data.isPublished == true;
+
+      allow create: if isOwner(userId)
+        && isValidPet(request.resource.data)
+        && request.resource.data.ownerId == userId
+        && isServerNow(request.resource.data.createdAt)
+        && isServerNow(request.resource.data.updatedAt);
+
+      allow update: if isOwner(userId)
+        && isValidPet(request.resource.data)
+        && areImmutableFieldsUnchanged(['ownerId', 'createdAt'])
+        && isServerNow(request.resource.data.updatedAt);
+
+      allow delete: if isOwner(userId);
+    }
+
+    // -----------------------------------------------------------
+    // likes/{fromUid}_{toUid}
+    // -----------------------------------------------------------
+
+    match /likes/{likeId} {
+      allow read: if isAuthenticated()
+        && (request.auth.uid == resource.data.fromUid
+            || request.auth.uid == resource.data.toUid);
+
+      allow create: if isAuthenticated()
+        && isValidLike(request.resource.data)
+        && likeId == request.resource.data.fromUid + '_'
+            + request.resource.data.toUid
+        && publishedPetExists(request.resource.data.toUid)
+        && !isEitherBlocked(
+            request.resource.data.fromUid,
+            request.resource.data.toUid)
+        && isServerNow(request.resource.data.createdAt);
+
+      allow update: if false;
+
+      allow delete: if isAuthenticated()
+        && request.auth.uid == resource.data.fromUid
+        && (
+          !exists(matchPath(resource.data.fromUid, resource.data.toUid))
+          || get(matchPath(resource.data.fromUid, resource.data.toUid))
+              .data.unmatched == true
+        );
+    }
+
+    // -----------------------------------------------------------
+    // passes/{fromUid}_{toUid}
+    // -----------------------------------------------------------
+
+    match /passes/{passId} {
+      allow read: if isAuthenticated()
+        && request.auth.uid == resource.data.fromUid;
+
+      allow create: if isAuthenticated()
+        && isValidPass(request.resource.data)
+        && passId == request.resource.data.fromUid + '_'
+            + request.resource.data.toUid
+        && isServerNow(request.resource.data.createdAt);
+
+      allow update: if false;
+
+      allow delete: if isAuthenticated()
+        && request.auth.uid == resource.data.fromUid;
+    }
+
+    // -----------------------------------------------------------
+    // matches/{minUid}_{maxUid}
+    // -----------------------------------------------------------
+
+    match /matches/{matchId} {
+      allow read: if isAuthenticated()
+        && request.auth.uid in resource.data.participantIds;
+
+      allow create: if isAuthenticated()
+        && isValidMatch(request.resource.data)
+        && request.resource.data.unmatched == false
+        && isPairDocId(
+            matchId,
+            request.resource.data.participantIds[0],
+            request.resource.data.participantIds[1])
+        && request.auth.uid in request.resource.data.participantIds
+        && mutualLikesAfter(
+            request.resource.data.participantIds[0],
+            request.resource.data.participantIds[1])
+        && !isEitherBlocked(
+            request.resource.data.participantIds[0],
+            request.resource.data.participantIds[1])
+        && isServerNow(request.resource.data.createdAt)
+        && isServerNow(request.resource.data.updatedAt);
+
+      allow update: if isAuthenticated()
+        && request.auth.uid in resource.data.participantIds
+        && isValidMatch(request.resource.data)
+        && areImmutableFieldsUnchanged(['participantIds', 'createdAt'])
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['unmatched', 'updatedAt'])
+        && isServerNow(request.resource.data.updatedAt)
+        && (
+          (resource.data.unmatched == false
+            && request.resource.data.unmatched == true)
+          || (resource.data.unmatched == true
+            && request.resource.data.unmatched == false
+            && mutualLikesAfter(
+                resource.data.participantIds[0],
+                resource.data.participantIds[1]))
+        );
+
+      allow delete: if false;
+    }
+
+    // -----------------------------------------------------------
+    // chats/{pairId} + messages + meetups
+    // -----------------------------------------------------------
+
+    match /chats/{chatId} {
+      allow read: if isChatParticipant(chatId);
+
+      allow create: if isAuthenticated()
+        && isValidChat(request.resource.data)
+        && isPairDocId(
+            chatId,
+            request.resource.data.participantIds[0],
+            request.resource.data.participantIds[1])
+        && request.auth.uid in request.resource.data.participantIds
+        && existsAfter(/databases/$(database)/documents/matches/$(chatId))
+        && getAfter(/databases/$(database)/documents/matches/$(chatId))
+            .data.participantIds == request.resource.data.participantIds
+        && getAfter(/databases/$(database)/documents/matches/$(chatId))
+            .data.unmatched == false
+        && !isEitherBlocked(
+            request.resource.data.participantIds[0],
+            request.resource.data.participantIds[1])
+        && isServerNow(request.resource.data.createdAt)
+        && isServerNow(request.resource.data.updatedAt)
+        && isServerNow(request.resource.data.lastMessageAt);
+
+      allow update: if isChatParticipant(chatId)
+        && activeMatch(chatId)
+        && isValidChat(request.resource.data)
+        && areImmutableFieldsUnchanged(['participantIds', 'createdAt'])
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly([
+              'lastMessagePreview', 'lastMessageAt',
+              'lastSenderId', 'updatedAt'
+            ])
+        && request.resource.data.lastSenderId == request.auth.uid
+        && isServerNow(request.resource.data.updatedAt)
+        && isServerNow(request.resource.data.lastMessageAt);
+
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        allow read: if isChatParticipant(chatId);
+
+        allow create: if isChatParticipant(chatId)
+          && activeMatch(chatId)
+          && isValidMessage(request.resource.data)
+          && request.resource.data.senderId in
+              get(chatPath(chatId)).data.participantIds
+          && !isEitherBlocked(
+              get(chatPath(chatId)).data.participantIds[0],
+              get(chatPath(chatId)).data.participantIds[1])
+          && isServerNow(request.resource.data.createdAt)
+          && (
+            request.resource.data.kind != 'meetup'
+            || (
+              existsAfter(meetupPath(chatId, request.resource.data.meetupId))
+              && getAfter(meetupPath(chatId, request.resource.data.meetupId))
+                  .data.proposerId == request.auth.uid
+            )
+          );
+
+        allow update, delete: if false;
+      }
+
+      match /meetups/{meetupId} {
+        allow read: if isChatParticipant(chatId);
+
+        allow create: if isChatParticipant(chatId)
+          && activeMatch(chatId)
+          && isValidMeetup(request.resource.data)
+          && request.resource.data.status == 'pending'
+          && request.resource.data.proposerId == request.auth.uid
+          && request.resource.data.receiverId in
+              get(chatPath(chatId)).data.participantIds
+          && request.resource.data.proposerId in
+              get(chatPath(chatId)).data.participantIds
+          && !isEitherBlocked(
+              get(chatPath(chatId)).data.participantIds[0],
+              get(chatPath(chatId)).data.participantIds[1])
+          && isServerNow(request.resource.data.createdAt)
+          && isServerNow(request.resource.data.updatedAt);
+
+        allow update: if isChatParticipant(chatId)
+          && activeMatch(chatId)
+          && isValidMeetup(request.resource.data)
+          && areImmutableFieldsUnchanged([
+            'proposerId', 'receiverId', 'createdAt'
+          ])
+          && isServerNow(request.resource.data.updatedAt)
+          && validMeetupTransition();
+
+        allow delete: if false;
+      }
+    }
+
+    // -----------------------------------------------------------
+    // blocks / reports
+    // -----------------------------------------------------------
+
+    match /blocks/{blockId} {
+      allow read: if isAuthenticated()
+        && request.auth.uid == resource.data.blockerUid;
+
+      allow create: if isAuthenticated()
+        && isValidBlock(request.resource.data)
+        && blockId == request.resource.data.blockerUid + '_'
+            + request.resource.data.blockedUid
+        && isServerNow(request.resource.data.createdAt);
+
+      allow update: if false;
+
+      allow delete: if isAuthenticated()
+        && request.auth.uid == resource.data.blockerUid;
+    }
+
+    match /reports/{reportId} {
+      allow read: if isAuthenticated()
+        && request.auth.uid == resource.data.reporterUid;
+
+      allow create: if isAuthenticated()
+        && isValidReport(request.resource.data)
+        && isServerNow(request.resource.data.createdAt);
+
+      allow update, delete: if false;
+    }
+
+    // Default deny — any other path
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
