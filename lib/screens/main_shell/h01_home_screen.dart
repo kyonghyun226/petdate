@@ -160,6 +160,8 @@ class _PassLikeFabs extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final verified = ref.watch(isVerifiedProvider);
+    // Same FAB slot: caption + dimmed like while unverified; friend/walk
+    // like restores here when the user-doc stream sees verifiedAt.
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [

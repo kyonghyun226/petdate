@@ -399,6 +399,47 @@ void main() {
     expect(find.text(AppCopy.matchTitle), findsNothing);
   });
 
+  testWidgets('verifiedAt stream restores H01 like CTA in place', (tester) async {
+    final container = _loggedIn(verified: false);
+    addTearDown(container.dispose);
+    await _pumpMain(tester, container);
+
+    expect(find.text(AppCopy.likeNeedsVerify), findsOneWidget);
+    final like = find.byKey(const ValueKey('like-button'));
+    final likeEl = tester.element(like);
+
+    container.read(userDocProvider.notifier).ingestListenSnapshot(
+          verifiedAt: DateTime.utc(2026, 9, 8, 12),
+        );
+    await tester.pump();
+
+    expect(tester.element(like), same(likeEl));
+    expect(find.text(AppCopy.likeNeedsVerify), findsNothing);
+    expect(find.text(GoalCopy.homeTitle(UserGoal.friend)), findsOneWidget);
+  });
+
+  testWidgets('verifiedAt stream restores D01 walk CTA in place', (tester) async {
+    final container = _loggedIn(goal: UserGoal.walk, verified: false);
+    addTearDown(container.dispose);
+    await _pumpMain(tester, container);
+    await tester.tap(find.byKey(const ValueKey('home-card-kong')));
+    await tester.pumpAndSettle();
+
+    expect(find.text(AppCopy.likeNeedsVerify), findsWidgets);
+    expect(find.text(GoalCopy.detailCta(UserGoal.walk, '콩이')), findsNothing);
+    final cta = find.byKey(const ValueKey('d01-cta'));
+    final ctaEl = tester.element(cta);
+
+    container.read(userDocProvider.notifier).ingestListenSnapshot(
+          verifiedAt: DateTime.utc(2026, 9, 8, 12),
+        );
+    await tester.pump();
+
+    expect(tester.element(cta), same(ctaEl));
+    expect(find.text(GoalCopy.detailCta(UserGoal.walk, '콩이')), findsOneWidget);
+    expect(find.text(AppCopy.likeNeedsVerify), findsNothing);
+  });
+
   testWidgets('unverified D01 CTA sheet then A02 restores friend CTA', (tester) async {
     final container = _loggedIn(verified: false);
     addTearDown(container.dispose);

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:petdate/state/session_provider.dart';
@@ -13,17 +15,34 @@ class UserDoc {
 }
 
 class UserDocNotifier extends Notifier<UserDoc> {
+  StreamController<UserDoc>? _snapshots;
+
+  /// Remote user-doc stream (mock until Firestore snapshots are wired).
+  Stream<UserDoc> get snapshots =>
+      _snapshots?.stream ?? const Stream.empty();
+
   @override
   UserDoc build() {
     ref.watch(sessionLoggedInTickProvider);
-    // TODO(firebase): subscribe to users/{uid} (get + snapshots, read only).
-    // isVerified flips when the remote doc contains verifiedAt.
+    final controller = StreamController<UserDoc>.broadcast();
+    _snapshots = controller;
+    ref.onDispose(() {
+      controller.close();
+      if (identical(_snapshots, controller)) _snapshots = null;
+    });
+    // TODO(firebase): pipe users/{uid} snapshots into [_snapshots] (read only).
     return const UserDoc();
   }
 
   /// Handle a remote user-doc snapshot. Not a Firestore write.
+  /// Updates [userDocProvider] in place so H01/D01 rebuild the same CTA slot.
   void ingestListenSnapshot({DateTime? verifiedAt}) {
-    state = UserDoc(verifiedAt: (verifiedAt ?? DateTime.now()).toUtc());
+    final next = UserDoc(verifiedAt: (verifiedAt ?? DateTime.now()).toUtc());
+    state = next;
+    final controller = _snapshots;
+    if (controller != null && !controller.isClosed) {
+      controller.add(next);
+    }
   }
 
   /// After CF succeeds, **read/listen** the user doc.
