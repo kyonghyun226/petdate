@@ -331,10 +331,18 @@ void main() {
     expect(IdentityContract.matchesCollection, 'matches');
     expect(IdentityContract.markUserVerifiedCallable, 'markUserVerified');
     expect(IdentityContract.functionsRegion, 'asia-northeast3');
+    expect(IdentityContract.failedPrecondition, 'failed-precondition');
     expect(AppCopy.likeNeedsVerify, '인증 후 반짝할 수 있어요');
     expect(AppCopy.verifyGateTitle, '안전하게 반짝해요');
     expect(AppCopy.verifyDone, '인증됐어요');
     expect(AppCopy.verifyGoSpark, '반짝하러 가기');
+  });
+
+  test('markUserVerified mock returns uid and ISO, not a Firestore write', () async {
+    final result = await IdentityVerification.requestMarkVerified(uid: 'u1');
+    expect(result, isNotNull);
+    expect(result!.uid, 'u1');
+    expect(DateTime.tryParse(result.verifiedAtIso), isNotNull);
   });
 
   test('client dart never writes users.verifiedAt to Firestore', () {

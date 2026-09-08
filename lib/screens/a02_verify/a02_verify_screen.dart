@@ -24,10 +24,12 @@ class _A02VerifyScreenState extends ConsumerState<A02VerifyScreen> {
     if (_busy) return;
     setState(() => _busy = true);
     final uid = ref.read(sessionProvider).uid;
-    // CF/Admin writes verifiedAt. Client only calls, then listens/reads.
-    final ok = await IdentityVerification.requestMarkVerified(uid: uid);
+    await IdentityVerification.ensureUserDocExists(uid: uid);
     if (!mounted) return;
-    if (ok) {
+    // Server writes verifiedAt. Client listens — does not set the field.
+    final result = await IdentityVerification.requestMarkVerified(uid: uid);
+    if (!mounted) return;
+    if (result != null) {
       await ref
           .read(userDocProvider.notifier)
           .pullRemoteUserDoc(afterCallableSuccess: true);
