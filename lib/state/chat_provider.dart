@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:petdate/copy/app_copy.dart';
 import 'package:petdate/data/backend_mode.dart';
+import 'package:petdate/data/mock_social_repository.dart';
 import 'package:petdate/data/social_providers.dart';
 import 'package:petdate/firebase/firestore_ids.dart';
 import 'package:petdate/models/chat.dart';
@@ -30,10 +31,17 @@ class ChatState {
     return null;
   }
 
-  List<ChatThread> visible(Set<String> blockedIds) => [
-        for (final t in threads)
-          if (!blockedIds.contains(t.profile.id)) t,
-      ];
+  List<ChatThread> visible(Set<String> blockedIds, {String? myUid}) {
+    final rows = [
+      for (final t in threads)
+        if (!blockedIds.contains(t.profile.id) &&
+            !t.unavailable &&
+            t.isParticipant(myUid))
+          t,
+    ];
+    rows.sort((a, b) => b.sortAt.compareTo(a.sortAt));
+    return rows;
+  }
 }
 
 class ChatNotifier extends Notifier<ChatState> {
@@ -58,12 +66,55 @@ class ChatNotifier extends Notifier<ChatState> {
     if (uid == null) return const ChatState();
     final sub =
         ref.read(socialRepositoryProvider).watchThreads(myUid: uid).listen(
-      (threads) {
-        state = ChatState(threads: threads);
-      },
+      _applyRemote,
     );
     ref.onDispose(sub.cancel);
     return const ChatState();
+  }
+
+  /// Test helper to drive empty / unread / navigation without Firestore.
+  void replaceForTest({required List<ChatThread> threads}) {
+    state = ChatState(threads: threads);
+  }
+
+  void markRead(String threadId) {
+    var changed = false;
+    final next = <ChatThread>[];
+    for (final t in state.threads) {
+      if (t.id == threadId && t.unread) {
+        next.add(t.copyWith(unread: false));
+        changed = true;
+      } else {
+        next.add(t);
+      }
+    }
+    if (changed) state = ChatState(threads: next);
+  }
+
+  void _applyRemote(List<ChatThread> remote) {
+    final prev = {for (final t in state.threads) t.id: t};
+    final seen = <String>{};
+    final next = <ChatThread>[];
+    for (final incoming in remote) {
+      seen.add(incoming.id);
+      next.add(_mergeThread(prev[incoming.id], incoming));
+    }
+    for (final local in state.threads) {
+      if (!seen.contains(local.id)) next.add(local);
+    }
+    state = ChatState(threads: next);
+  }
+
+  ChatThread _mergeThread(ChatThread? prev, ChatThread incoming) {
+    if (prev == null) return incoming;
+    final newActivity = prev.messages.length != incoming.messages.length ||
+        (prev.messages.isNotEmpty &&
+            incoming.messages.isNotEmpty &&
+            prev.messages.last.id != incoming.messages.last.id);
+    if (!prev.unread) {
+      return incoming.copyWith(unread: newActivity && incoming.unread);
+    }
+    return incoming;
   }
 
   ChatThread ensureMatchThread(DiscoveryProfile profile) {
@@ -92,12 +143,28 @@ class ChatNotifier extends Notifier<ChatState> {
           proposal: _inboundDemoProposal,
         ),
     ];
+    final unread = messages.any(
+      (m) => !m.isMine && m.kind != ChatMessageKind.system,
+    );
     final thread = ChatThread(
       id: id,
       profile: profile,
       messages: messages,
+      updatedAt: DateTime.now(),
+      unread: unread,
+      participantIds: {uid, profile.id},
     );
     state = ChatState(threads: [...state.threads, thread]);
+    final repo = ref.read(socialRepositoryProvider);
+    if (ref.read(useMockDataProvider) && repo is MockSocialRepository) {
+      repo.ensureThread(
+        uid,
+        profile,
+        messages: messages,
+        unread: unread,
+        updatedAt: thread.updatedAt,
+      );
+    }
     return thread;
   }
 
@@ -120,14 +187,12 @@ class ChatNotifier extends Notifier<ChatState> {
             t,
       ],
     );
-    if (!ref.read(useMockDataProvider)) {
-      unawaited(
-        ref.read(socialRepositoryProvider).setMeetupStatus(
-              proposalId: messageId,
-              receipt: receipt,
-            ),
-      );
-    }
+    unawaited(
+      ref.read(socialRepositoryProvider).setMeetupStatus(
+            proposalId: messageId,
+            receipt: receipt,
+          ),
+    );
   }
 
   void sendText(String threadId, String text) {
@@ -141,17 +206,15 @@ class ChatNotifier extends Notifier<ChatState> {
         isMine: true,
       ),
     );
-    if (!ref.read(useMockDataProvider)) {
-      final uid = ref.read(sessionProvider).uid;
-      if (uid == null) return;
-      unawaited(
-        ref.read(socialRepositoryProvider).sendText(
-              matchId: threadId,
-              senderId: uid,
-              text: trimmed,
-            ),
-      );
-    }
+    final uid = ref.read(sessionProvider).uid;
+    if (uid == null) return;
+    unawaited(
+      ref.read(socialRepositoryProvider).sendText(
+            matchId: threadId,
+            senderId: uid,
+            text: trimmed,
+          ),
+    );
   }
 
   void sendMeetup(String threadId, MeetupProposal proposal) {
@@ -165,17 +228,15 @@ class ChatNotifier extends Notifier<ChatState> {
         proposal: proposal,
       ),
     );
-    if (!ref.read(useMockDataProvider)) {
-      final uid = ref.read(sessionProvider).uid;
-      if (uid == null) return;
-      unawaited(
-        ref.read(socialRepositoryProvider).sendMeetup(
-              matchId: threadId,
-              fromUid: uid,
-              proposal: proposal,
-            ),
-      );
-    }
+    final uid = ref.read(sessionProvider).uid;
+    if (uid == null) return;
+    unawaited(
+      ref.read(socialRepositoryProvider).sendMeetup(
+            matchId: threadId,
+            fromUid: uid,
+            proposal: proposal,
+          ),
+    );
   }
 
   void removeByProfile(String profileId) {
@@ -192,7 +253,11 @@ class ChatNotifier extends Notifier<ChatState> {
       threads: [
         for (final t in state.threads)
           if (t.id == threadId)
-            t.copyWith(messages: [...t.messages, message])
+            t.copyWith(
+              messages: [...t.messages, message],
+              updatedAt: DateTime.now(),
+              unread: false,
+            )
           else
             t,
       ],

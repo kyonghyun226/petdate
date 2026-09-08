@@ -56,6 +56,40 @@ class PrimaryButton extends StatelessWidget {
   }
 }
 
+class PrimaryOutlineButton extends StatelessWidget {
+  const PrimaryOutlineButton({
+    super.key,
+    required this.label,
+    this.onPressed,
+    this.expand = true,
+  });
+
+  final String label;
+  final VoidCallback? onPressed;
+  final bool expand;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: expand ? double.infinity : null,
+      height: AppSizes.buttonHeight,
+      child: OutlinedButton(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.primary,
+          side: const BorderSide(color: AppColors.primary, width: 1.5),
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.button),
+          ),
+          textStyle: AppTypography.button.copyWith(color: AppColors.primary),
+        ),
+        child: Text(label),
+      ),
+    );
+  }
+}
+
 class SecondaryButton extends StatelessWidget {
   const SecondaryButton({
     super.key,

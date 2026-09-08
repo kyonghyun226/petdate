@@ -163,6 +163,9 @@ class FirestoreSocialRepository implements SocialRepository {
       detailSubs.clear();
       for (final match in snap.docs) {
         detailSubs.add(
+          _threads.doc(match.id).snapshots().listen((_) => emit(snap)),
+        );
+        detailSubs.add(
           _threads
               .doc(match.id)
               .collection(IdentityContract.messagesCollection)
@@ -205,6 +208,7 @@ class FirestoreSocialRepository implements SocialRepository {
     final other = userIds.firstWhere((id) => id != myUid, orElse: () => myUid);
     final pet = await _pets.doc(other).get();
     final profile = PetCodec.toDiscovery(pet.id, pet.data());
+    // Withdrawn / deleted counterpart: drop the room (no placeholder row).
     if (profile == null) return null;
 
     final msgSnap = await _threads
@@ -238,10 +242,30 @@ class FirestoreSocialRepository implements SocialRepository {
         _messageFrom(doc, myUid, receipts[doc.id], proposals[doc.id]),
     ];
 
+    final threadSnap = await _threads.doc(matchId).get();
+    DateTime? updatedAt;
+    final updatedRaw = threadSnap.data()?['updatedAt'];
+    if (updatedRaw is Timestamp) {
+      updatedAt = updatedRaw.toDate();
+    } else if (msgSnap.docs.isNotEmpty) {
+      final created = msgSnap.docs.last.data()['createdAt'];
+      if (created is Timestamp) updatedAt = created.toDate();
+    }
+
+    final lastUser = messages.lastWhere(
+      (m) => m.kind != ChatMessageKind.system,
+      orElse: () => messages.first,
+    );
+    final unread =
+        lastUser.kind != ChatMessageKind.system && !lastUser.isMine;
+
     return ChatThread(
       id: matchId,
       profile: profile,
       messages: messages,
+      updatedAt: updatedAt,
+      unread: unread,
+      participantIds: {...userIds},
     );
   }
 

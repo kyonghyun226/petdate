@@ -158,6 +158,10 @@ void main() {
     final threads = await repo.watchThreads(myUid: me).first;
     expect(threads, hasLength(1));
     expect(threads.single.id, matchId);
+    expect(threads.single.isParticipant(me), isTrue);
+    final outsider =
+        await repo.watchThreads(myUid: 'notamember0000001').first;
+    expect(outsider, isEmpty);
     expect(threads.single.messages.any((m) => m.text == '안녕'), isTrue);
     expect(
       threads.single.messages.any((m) => m.kind == ChatMessageKind.meetup),

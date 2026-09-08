@@ -32,6 +32,15 @@ class _C02ChatRoomScreenState extends ConsumerState<C02ChatRoomScreen> {
   final _scroll = ScrollController();
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(chatProvider.notifier).markRead(widget.threadId);
+    });
+  }
+
+  @override
   void dispose() {
     _input.dispose();
     _scroll.dispose();

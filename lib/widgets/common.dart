@@ -124,6 +124,7 @@ class EmptyState extends StatelessWidget {
     this.hint,
     this.actionLabel,
     this.onAction,
+    this.outlineAction = false,
   });
 
   final String message;
@@ -131,6 +132,7 @@ class EmptyState extends StatelessWidget {
   final String? hint;
   final String? actionLabel;
   final VoidCallback? onAction;
+  final bool outlineAction;
 
   @override
   Widget build(BuildContext context) {
@@ -166,10 +168,15 @@ class EmptyState extends StatelessWidget {
             const SizedBox(height: AppSpacing.xl),
             SizedBox(
               width: 200,
-              child: PrimaryButton(
-                label: actionLabel!,
-                onPressed: onAction,
-              ),
+              child: outlineAction
+                  ? PrimaryOutlineButton(
+                      label: actionLabel!,
+                      onPressed: onAction,
+                    )
+                  : PrimaryButton(
+                      label: actionLabel!,
+                      onPressed: onAction,
+                    ),
             ),
           ],
         ],

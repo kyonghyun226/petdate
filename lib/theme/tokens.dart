@@ -54,6 +54,9 @@ abstract final class AppSizes {
   static const double sparkSegmentHeight = 40;
   static const double sparkRowHeight = 72;
   static const double sparkThumb = 48;
+  static const double chatRowHeight = 72;
+  static const double chatThumb = 48;
+  static const double chatUnreadDot = 8;
   static const double templateChipHeight = 36;
 }
 

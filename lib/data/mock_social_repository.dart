@@ -118,23 +118,68 @@ class MockSocialRepository implements SocialRepository {
     _threadsCtrl.add(_threads.values.toList());
   }
 
-  ChatThread _ensureThread(String myUid, DiscoveryProfile profile) {
+  bool _isParticipant(String matchId, String myUid) {
+    final match = _matches[matchId];
+    if (match != null) return match.userIds.contains(myUid);
+    final thread = _threads[matchId];
+    if (thread == null) return false;
+    return thread.isParticipant(myUid);
+  }
+
+  List<ChatThread> _threadsFor(String myUid) => [
+        for (final thread in _threads.values)
+          if (_isParticipant(thread.id, myUid) && !thread.unavailable) thread,
+      ];
+
+  /// Marks the counterpart as withdrawn so C01 drops the room.
+  void withdrawUser(String profileId) {
+    for (final entry in _threads.entries) {
+      if (entry.value.profile.id != profileId) continue;
+      _threads[entry.key] = entry.value.copyWith(unavailable: true);
+    }
+    _emitThreads();
+  }
+
+  /// Creates a participant match + thread. Used by mock likes and C01 inbox.
+  ChatThread ensureThread(
+    String myUid,
+    DiscoveryProfile profile, {
+    List<ChatMessage>? messages,
+    bool unread = false,
+    DateTime? updatedAt,
+  }) {
     final id = FirestoreIds.matchId(myUid, profile.id);
+    _matches.putIfAbsent(
+      id,
+      () => MatchRecord(
+        id: id,
+        userIds: FirestoreIds.sortedUids(myUid, profile.id),
+        petIds: FirestoreIds.petIdsForUsers(
+          FirestoreIds.sortedUids(myUid, profile.id),
+        ),
+      ),
+    );
     final existing = _threads[id];
-    if (existing != null) return existing;
+    if (existing != null && messages == null) return existing;
     final thread = ChatThread(
       id: id,
       profile: profile,
-      messages: [
-        ChatMessage(
-          id: 'sys_$id',
-          text: AppCopy.chatSystemMatch,
-          isMine: false,
-          kind: ChatMessageKind.system,
-        ),
-      ],
+      messages: messages ??
+          existing?.messages ??
+          [
+            ChatMessage(
+              id: 'sys_$id',
+              text: AppCopy.chatSystemMatch,
+              isMine: false,
+              kind: ChatMessageKind.system,
+            ),
+          ],
+      updatedAt: updatedAt ?? existing?.updatedAt ?? DateTime.now(),
+      unread: unread,
+      participantIds: {myUid, profile.id},
     );
     _threads[id] = thread;
+    _emitThreads();
     return thread;
   }
 
@@ -166,8 +211,10 @@ class MockSocialRepository implements SocialRepository {
   @override
   Stream<List<ChatThread>> watchThreads({required String myUid}) {
     return Stream<List<ChatThread>>.multi((listener) {
-      listener.add(_threads.values.toList());
-      final sub = _threadsCtrl.stream.listen(listener.add);
+      listener.add(_threadsFor(myUid));
+      final sub = _threadsCtrl.stream.listen((_) {
+        listener.add(_threadsFor(myUid));
+      });
       listener.onCancel = sub.cancel;
     });
   }
@@ -198,7 +245,7 @@ class MockSocialRepository implements SocialRepository {
         userIds: userIds,
         petIds: FirestoreIds.petIdsForUsers(userIds),
       );
-      _ensureThread(fromUid, to);
+      ensureThread(fromUid, to);
     }
     _emitSpark(fromUid);
     _emitThreads();
@@ -224,6 +271,8 @@ class MockSocialRepository implements SocialRepository {
           isMine: true,
         ),
       ],
+      updatedAt: DateTime.now(),
+      unread: false,
     );
     _emitThreads();
   }
@@ -250,6 +299,8 @@ class MockSocialRepository implements SocialRepository {
           proposal: proposal,
         ),
       ],
+      updatedAt: DateTime.now(),
+      unread: false,
     );
     _emitThreads();
   }
