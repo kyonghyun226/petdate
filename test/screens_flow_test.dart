@@ -183,7 +183,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text(AppCopy.chatSystemMatch), findsOneWidget);
-    expect(find.text(AppCopy.proposeMeetup), findsOneWidget);
+    expect(find.byKey(const ValueKey('meetup-propose-chip')), findsOneWidget);
     expect(
       find.text(GoalCopy.firstMessageChips(UserGoal.friend, AppCopy.fallbackPetName).first),
       findsOneWidget,
@@ -198,10 +198,14 @@ void main() {
       GoalCopy.firstMessageChips(UserGoal.friend, AppCopy.fallbackPetName).first,
     );
     expect(find.text(AppCopy.chatSystemMatch), findsOneWidget);
+    expect(
+      container.read(analyticsProvider).events,
+      contains(MeetKpi.firstMessageTemplateUsed),
+    );
 
-    await tester.tap(find.text(AppCopy.proposeMeetup));
+    await tester.tap(find.byKey(const ValueKey('meetup-propose-chip')));
     await tester.pumpAndSettle();
-    expect(find.text(AppCopy.meetupPlace), findsOneWidget);
+    expect(find.text(AppCopy.meetupPlace), findsWidgets);
     await tester.tap(find.text(AppCopy.send));
     await tester.pumpAndSettle();
     expect(find.textContaining('만남 제안'), findsWidgets);
@@ -283,10 +287,10 @@ void main() {
 
     await tester.tap(find.text(AppCopy.startChat));
     await tester.pumpAndSettle();
-    await tester.tap(find.text(AppCopy.proposeMeetup));
+    await tester.tap(find.byKey(const ValueKey('meetup-propose-chip')));
     await tester.pumpAndSettle();
-    expect(find.text(AppCopy.meetupPlace), findsOneWidget);
-    expect(find.text(AppCopy.meetupTime), findsOneWidget);
+    expect(find.text(AppCopy.meetupPlace), findsWidgets);
+    expect(find.text(AppCopy.meetupTime), findsWidgets);
     await tester.tap(find.text(AppCopy.send));
     await tester.pumpAndSettle();
     expect(find.textContaining('만남 제안'), findsWidgets);
@@ -353,7 +357,7 @@ void main() {
 
     await tester.tap(find.text(AppCopy.meetupCounter));
     await tester.pumpAndSettle();
-    expect(find.text(AppCopy.meetupPlace), findsOneWidget);
+    expect(find.text(AppCopy.meetupPlace), findsWidgets);
     expect(
       container.read(analyticsProvider).events,
       contains(MeetKpi.proposalCounter),
@@ -398,6 +402,7 @@ void main() {
     expect(SpeciesCopy.noun(PetSpecies.dog), AppCopy.petNounDog);
     expect(SpeciesCopy.noun(PetSpecies.cat), AppCopy.petNounCat);
     expect(SpeciesCopy.noun(null), AppCopy.petNounFallback);
+    expect(MeetKpi.firstMessageTemplateUsed, 'first_message_template_used');
     expect(MeetKpi.proposalSent, 'meet_proposal_sent');
     expect(MeetKpi.proposalAccepted, 'meet_proposal_accepted');
     expect(MeetKpi.proposalCounter, 'meet_proposal_counter');

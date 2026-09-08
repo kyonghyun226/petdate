@@ -5,6 +5,7 @@ import 'package:petdate/copy/app_copy.dart';
 import 'package:petdate/models/chat.dart';
 import 'package:petdate/state/analytics_provider.dart';
 import 'package:petdate/state/chat_provider.dart';
+import 'package:petdate/state/session_provider.dart';
 import 'package:petdate/theme/tokens.dart';
 import 'package:petdate/widgets/buttons.dart';
 import 'package:petdate/widgets/common.dart';
@@ -21,23 +22,24 @@ Future<void> showC03MeetupSheet(BuildContext context, String threadId) {
     ),
     builder: (context) => Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-      child: _C03MeetupSheet(threadId: threadId),
+      child: C03MeetupSheet(threadId: threadId),
     ),
   );
 }
 
-class _C03MeetupSheet extends ConsumerStatefulWidget {
-  const _C03MeetupSheet({required this.threadId});
+class C03MeetupSheet extends ConsumerStatefulWidget {
+  const C03MeetupSheet({super.key, required this.threadId});
 
   final String threadId;
 
   @override
-  ConsumerState<_C03MeetupSheet> createState() => _C03MeetupSheetState();
+  ConsumerState<C03MeetupSheet> createState() => _C03MeetupSheetState();
 }
 
-class _C03MeetupSheetState extends ConsumerState<_C03MeetupSheet> {
+class _C03MeetupSheetState extends ConsumerState<C03MeetupSheet> {
   MeetupPlace _place = MeetupPlace.park;
-  String _time = AppCopy.meetupTimeChips.first;
+  String _time = AppCopy.meetupTonight;
+  bool _customTime = false;
   final _other = TextEditingController();
   final _memo = TextEditingController();
 
@@ -52,12 +54,60 @@ class _C03MeetupSheetState extends ConsumerState<_C03MeetupSheet> {
     if (_place == MeetupPlace.other && _other.text.trim().isEmpty) {
       return false;
     }
-    return _time.isNotEmpty;
+    return _time.isNotEmpty && _time != AppCopy.meetupPickDateTime;
+  }
+
+  Future<void> _pickDateTime() async {
+    final now = DateTime.now();
+    final date = await showDatePicker(
+      context: context,
+      initialDate: now,
+      firstDate: DateTime(now.year, now.month, now.day),
+      lastDate: now.add(const Duration(days: 60)),
+    );
+    if (date == null || !mounted) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(now.add(const Duration(hours: 1))),
+    );
+    if (time == null || !mounted) return;
+    setState(() {
+      _time = _formatPicked(date, time);
+      _customTime = true;
+    });
+  }
+
+  String _formatPicked(DateTime date, TimeOfDay time) {
+    final hour = time.hour;
+    final minute = time.minute.toString().padLeft(2, '0');
+    final period = hour < 12 ? '오전' : '오후';
+    final hour12 = hour % 12 == 0 ? 12 : hour % 12;
+    return '${date.month}월 ${date.day}일 $period $hour12:$minute';
+  }
+
+  void _selectTime(String label) {
+    if (label == AppCopy.meetupPickDateTime) {
+      _pickDateTime();
+      return;
+    }
+    setState(() {
+      _time = label;
+      _customTime = false;
+    });
+  }
+
+  bool _timeSelected(String label) {
+    if (label == AppCopy.meetupPickDateTime) return _customTime;
+    return !_customTime && _time == label;
   }
 
   @override
   Widget build(BuildContext context) {
+    final goal =
+        ref.watch(sessionProvider.select((s) => s.goal)) ?? UserGoal.friend;
+
     return SingleChildScrollView(
+      key: const ValueKey('c03-meetup-sheet'),
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.xl,
         AppSpacing.sm,
@@ -67,7 +117,7 @@ class _C03MeetupSheetState extends ConsumerState<_C03MeetupSheet> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(AppCopy.proposeMeetup, style: AppTypography.title),
+          Text(GoalCopy.meetupTitle(goal), style: AppTypography.title),
           const SizedBox(height: AppSpacing.xl),
           Text(AppCopy.meetupPlace, style: AppTypography.button),
           const SizedBox(height: AppSpacing.sm),
@@ -85,6 +135,7 @@ class _C03MeetupSheetState extends ConsumerState<_C03MeetupSheet> {
           if (_place == MeetupPlace.other) ...[
             const SizedBox(height: AppSpacing.md),
             TextField(
+              key: const ValueKey('meetup-other-place'),
               controller: _other,
               decoration: const InputDecoration(
                 hintText: AppCopy.meetupOtherHint,
@@ -101,9 +152,12 @@ class _C03MeetupSheetState extends ConsumerState<_C03MeetupSheet> {
             children: [
               for (final time in AppCopy.meetupTimeChips)
                 SelectableChip(
-                  label: time,
-                  selected: _time == time,
-                  onTap: () => setState(() => _time = time),
+                  key: ValueKey('meetup-time-$time'),
+                  label: time == AppCopy.meetupPickDateTime && _customTime
+                      ? _time
+                      : time,
+                  selected: _timeSelected(time),
+                  onTap: () => _selectTime(time),
                 ),
             ],
           ),
@@ -111,6 +165,7 @@ class _C03MeetupSheetState extends ConsumerState<_C03MeetupSheet> {
           Text(AppCopy.meetupMemo, style: AppTypography.button),
           const SizedBox(height: AppSpacing.sm),
           TextField(
+            key: const ValueKey('meetup-memo'),
             controller: _memo,
             maxLines: 3,
             maxLength: AppConstants.meetupMemoMax,
@@ -121,6 +176,7 @@ class _C03MeetupSheetState extends ConsumerState<_C03MeetupSheet> {
           ),
           const SizedBox(height: AppSpacing.lg),
           PrimaryButton(
+            key: const ValueKey('meetup-send'),
             label: AppCopy.send,
             onPressed: _canSend
                 ? () {

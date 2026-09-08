@@ -39,6 +39,8 @@ class DiscoveryProfile {
 
   int get photoCount => photoSeeds.isEmpty ? 1 : photoSeeds.length;
 
+  String get distanceLabel => formatPetDistance(distanceKm);
+
   DiscoveryProfile copyWith({bool? likedMe}) {
     return DiscoveryProfile(
       id: id,
@@ -56,4 +58,10 @@ class DiscoveryProfile {
       likedMe: likedMe ?? this.likedMe,
     );
   }
+}
+
+String formatPetDistance(double km) {
+  if (km <= 0) return '근처';
+  if (km < 1) return '${(km * 1000).round()}m';
+  return '${km.toStringAsFixed(1)}km';
 }

@@ -29,9 +29,21 @@ class ChatState {
     }
     return null;
   }
+
+  List<ChatThread> visible(Set<String> blockedIds) => [
+        for (final t in threads)
+          if (!blockedIds.contains(t.profile.id)) t,
+      ];
 }
 
 class ChatNotifier extends Notifier<ChatState> {
+  static const _inboundDemoProposal = MeetupProposal(
+    place: MeetupPlace.park,
+    placeDetail: '',
+    timeLabel: AppCopy.meetupTonight,
+    memo: '',
+  );
+
   int _msgSeq = 0;
 
   @override
@@ -73,10 +85,11 @@ class ChatNotifier extends Notifier<ChatState> {
       if (profile.likedMe)
         ChatMessage(
           id: _nextId(),
-          text: '만남 제안 · 공원 · 주말 아침',
+          text: MeetupCopy.cardText(_inboundDemoProposal),
           isMine: false,
           kind: ChatMessageKind.meetup,
           receipt: MeetupReceipt.pending,
+          proposal: _inboundDemoProposal,
         ),
     ];
     final thread = ChatThread(
@@ -142,22 +155,14 @@ class ChatNotifier extends Notifier<ChatState> {
   }
 
   void sendMeetup(String threadId, MeetupProposal proposal) {
-    final place = MeetupPlaceCopy.label(proposal.place);
-    final detail = proposal.place == MeetupPlace.other &&
-            proposal.placeDetail.trim().isNotEmpty
-        ? '${proposal.placeDetail.trim()} · $place'
-        : place;
-    final memo = proposal.memo.trim();
-    final text = memo.isEmpty
-        ? '만남 제안 · $detail · ${proposal.timeLabel}'
-        : '만남 제안 · $detail · ${proposal.timeLabel}\n$memo';
     _append(
       threadId,
       ChatMessage(
         id: _nextId(),
-        text: text,
+        text: MeetupCopy.cardText(proposal),
         isMine: true,
         kind: ChatMessageKind.meetup,
+        proposal: proposal,
       ),
     );
     if (!ref.read(useMockDataProvider)) {
@@ -171,6 +176,15 @@ class ChatNotifier extends Notifier<ChatState> {
             ),
       );
     }
+  }
+
+  void removeByProfile(String profileId) {
+    state = ChatState(
+      threads: [
+        for (final t in state.threads)
+          if (t.profile.id != profileId) t,
+      ],
+    );
   }
 
   void _append(String threadId, ChatMessage message) {

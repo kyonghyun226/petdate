@@ -78,6 +78,11 @@ abstract final class AppCopy {
 
   static const chatEmpty = '아직 반짝한 친구가 없어요';
   static const chatEmptyHint = '서로 반짝하면 여기에서 인사할 수 있어요.';
+  static const chatMembersOnly = '이 대화는 참여자만 볼 수 있어요';
+  static const viewProfile = '프로필';
+  static const reportMenuItem = '신고';
+  static const blockMenuItem = '차단';
+  static const chatInputHint = '메시지 보내기';
 
   static const p01Title = '기본 정보';
   static const p02Title = '사진';
@@ -160,18 +165,22 @@ abstract final class AppCopy {
   static const chatSystemMatch =
       '반짝 매칭을 축하해요! 산책이나 카페 약속을 제안해 보세요';
   static const proposeMeetup = '만남 제안';
+  static const meetupFriendTitle = '어디서 만날까요?';
+  static const meetupWalkTitle = '어디서 같이 걸을까요?';
   static const meetupPlace = '장소';
   static const meetupTime = '시간';
   static const meetupMemo = '메모';
   static const meetupMemoHint = '만날 때 참고할 한 줄을 남겨 주세요';
   static const meetupOtherHint = '장소 이름 또는 동네';
   static const meetupSent = '만남 제안을 보냈어요';
+  static const meetupTonight = '오늘 저녁';
+  static const meetupThisWeekend = '이번 주말';
+  static const meetupPickDateTime = '날짜·시간 선택';
 
   static const List<String> meetupTimeChips = [
-    '오늘 저녁',
-    '내일 오전',
-    '주말 아침',
-    '주말 오후',
+    meetupTonight,
+    meetupThisWeekend,
+    meetupPickDateTime,
   ];
 
   static const List<PetTag> petTags = PetTags.all;
@@ -228,5 +237,10 @@ abstract final class GoalCopy {
             '퇴근 후 짧게 걸을래요',
             '이번 주말 시간 맞춰볼까요?',
           ],
+      };
+
+  static String meetupTitle(UserGoal goal) => switch (goal) {
+        UserGoal.friend => AppCopy.meetupFriendTitle,
+        UserGoal.walk => AppCopy.meetupWalkTitle,
       };
 }

@@ -15,6 +15,7 @@ class ChatMessage {
     required this.isMine,
     this.kind = ChatMessageKind.text,
     this.receipt,
+    this.proposal,
   });
 
   final String id;
@@ -22,14 +23,19 @@ class ChatMessage {
   final bool isMine;
   final ChatMessageKind kind;
   final MeetupReceipt? receipt;
+  final MeetupProposal? proposal;
 
-  ChatMessage copyWith({MeetupReceipt? receipt}) {
+  ChatMessage copyWith({
+    MeetupReceipt? receipt,
+    MeetupProposal? proposal,
+  }) {
     return ChatMessage(
       id: id,
       text: text,
       isMine: isMine,
       kind: kind,
       receipt: receipt ?? this.receipt,
+      proposal: proposal ?? this.proposal,
     );
   }
 }
@@ -84,4 +90,32 @@ abstract final class MeetupPlaceCopy {
         MeetupPlace.petCafe => '펫카페',
         MeetupPlace.other => '기타',
       };
+
+  static MeetupPlace fromType(String? type) => switch (type) {
+        'petCafe' => MeetupPlace.petCafe,
+        'other' => MeetupPlace.other,
+        _ => MeetupPlace.park,
+      };
+}
+
+abstract final class MeetupCopy {
+  static String cardText(MeetupProposal proposal) {
+    final place = MeetupPlaceCopy.label(proposal.place);
+    final detail = proposal.place == MeetupPlace.other &&
+            proposal.placeDetail.trim().isNotEmpty
+        ? '${proposal.placeDetail.trim()} · $place'
+        : place;
+    final memo = proposal.memo.trim();
+    return memo.isEmpty
+        ? '만남 제안 · $detail · ${proposal.timeLabel}'
+        : '만남 제안 · $detail · ${proposal.timeLabel}\n$memo';
+  }
+
+  static String placeLine(MeetupProposal proposal) {
+    if (proposal.place == MeetupPlace.other &&
+        proposal.placeDetail.trim().isNotEmpty) {
+      return proposal.placeDetail.trim();
+    }
+    return MeetupPlaceCopy.label(proposal.place);
+  }
 }

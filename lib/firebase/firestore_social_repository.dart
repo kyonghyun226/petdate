@@ -214,10 +214,18 @@ class FirestoreSocialRepository implements SocialRepository {
         .get();
     final proposalSnap =
         await _proposals.where('matchId', isEqualTo: matchId).get();
-    final receipts = <String, MeetupReceipt>{
-      for (final doc in proposalSnap.docs)
-        doc.id: _receiptOf(doc.data()['status'] as String?),
-    };
+    final receipts = <String, MeetupReceipt>{};
+    final proposals = <String, MeetupProposal>{};
+    for (final doc in proposalSnap.docs) {
+      final data = doc.data();
+      receipts[doc.id] = _receiptOf(data['status'] as String?);
+      proposals[doc.id] = MeetupProposal(
+        place: MeetupPlaceCopy.fromType(data['placeType'] as String?),
+        placeDetail: '',
+        timeLabel: data['timeSlot'] as String? ?? '',
+        memo: '',
+      );
+    }
 
     final messages = <ChatMessage>[
       ChatMessage(
@@ -227,7 +235,7 @@ class FirestoreSocialRepository implements SocialRepository {
         kind: ChatMessageKind.system,
       ),
       for (final doc in msgSnap.docs)
-        _messageFrom(doc, myUid, receipts[doc.id]),
+        _messageFrom(doc, myUid, receipts[doc.id], proposals[doc.id]),
     ];
 
     return ChatThread(
@@ -241,12 +249,22 @@ class FirestoreSocialRepository implements SocialRepository {
     QueryDocumentSnapshot<Map<String, dynamic>> doc,
     String myUid,
     MeetupReceipt? receipt,
+    MeetupProposal? proposal,
   ) {
     final data = doc.data();
     final type = data['type'] as String? ?? 'text';
+    final text = data['text'] as String? ?? '';
+    final resolved = proposal == null
+        ? null
+        : MeetupProposal(
+            place: proposal.place,
+            placeDetail: proposal.placeDetail,
+            timeLabel: proposal.timeLabel,
+            memo: _memoFromText(text),
+          );
     return ChatMessage(
       id: doc.id,
-      text: data['text'] as String? ?? '',
+      text: text,
       isMine: data['senderId'] == myUid,
       kind: type == 'meet_proposal'
           ? ChatMessageKind.meetup
@@ -254,7 +272,14 @@ class FirestoreSocialRepository implements SocialRepository {
       receipt: type == 'meet_proposal'
           ? (receipt ?? MeetupReceipt.pending)
           : null,
+      proposal: type == 'meet_proposal' ? resolved : null,
     );
+  }
+
+  String _memoFromText(String text) {
+    final breakAt = text.indexOf('\n');
+    if (breakAt < 0) return '';
+    return text.substring(breakAt + 1).trim();
   }
 
   MeetupReceipt _receiptOf(String? status) {
@@ -283,17 +308,7 @@ class FirestoreSocialRepository implements SocialRepository {
     };
   }
 
-  String _meetupText(MeetupProposal proposal) {
-    final place = MeetupPlaceCopy.label(proposal.place);
-    final detail = proposal.place == MeetupPlace.other &&
-            proposal.placeDetail.trim().isNotEmpty
-        ? '${proposal.placeDetail.trim()} · $place'
-        : place;
-    final memo = proposal.memo.trim();
-    return memo.isEmpty
-        ? '만남 제안 · $detail · ${proposal.timeLabel}'
-        : '만남 제안 · $detail · ${proposal.timeLabel}\n$memo';
-  }
+  String _meetupText(MeetupProposal proposal) => MeetupCopy.cardText(proposal);
 
   String _timeSlotOf(MeetupProposal proposal) {
     final extra = proposal.place == MeetupPlace.other
