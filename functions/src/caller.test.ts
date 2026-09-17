@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import {describe, it} from "node:test";
 import {HttpsError} from "firebase-functions/https";
-import {callerUid} from "./caller";
+import {callerUid, requirePhoneNumber} from "./caller";
 
 describe("callerUid", () => {
   it("requires a signed-in caller", () => {
@@ -24,5 +24,29 @@ describe("callerUid", () => {
       (err: unknown) =>
         err instanceof HttpsError && err.code === "permission-denied",
     );
+  });
+});
+
+describe("requirePhoneNumber", () => {
+  it("requires a non-empty phone_number claim", () => {
+    assert.throws(
+      () => requirePhoneNumber(undefined),
+      (err: unknown) =>
+        err instanceof HttpsError && err.code === "failed-precondition",
+    );
+    assert.throws(
+      () => requirePhoneNumber(""),
+      (err: unknown) =>
+        err instanceof HttpsError && err.code === "failed-precondition",
+    );
+    assert.throws(
+      () => requirePhoneNumber("   "),
+      (err: unknown) =>
+        err instanceof HttpsError && err.code === "failed-precondition",
+    );
+  });
+
+  it("returns the phone number when present", () => {
+    assert.equal(requirePhoneNumber("+821012345678"), "+821012345678");
   });
 });

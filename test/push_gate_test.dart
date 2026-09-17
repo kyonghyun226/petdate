@@ -112,7 +112,7 @@ void main() {
       AppCopy.pushPrepromptBody,
       AppCopy.pushPrepromptAllow,
       AppCopy.pushPrepromptDeny,
-      AppCopy.settingsEnableNotifications,
+      AppCopy.settingsNotifications,
       AppCopy.settingsNotificationsHint,
       AppCopy.pushMatchTitle,
       AppCopy.pushMatchBody,

@@ -12,7 +12,28 @@
           "package_name": "kr.mooca.petdate"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "503588097549-h2cojs2vg325aming0h92mdj73ahb247.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "kr.mooca.petdate",
+            "certificate_hash": "f414c9bc5884641d4fd0312d43dbbfe5450136b6"
+          }
+        },
+        {
+          "client_id": "503588097549-jgg4v7gmao0vda63unujcmgtngg9ggrq.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "kr.mooca.petdate",
+            "certificate_hash": "2ce916af151d58ed08e82258ae4951f8b76be823"
+          }
+        },
+        {
+          "client_id": "503588097549-cmbo7o55g9gur4pa86g9095mrvtd8msk.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyC51vEXgWVlW5pTlirUbfMMXQu76tE475k"
@@ -20,7 +41,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "503588097549-cmbo7o55g9gur4pa86g9095mrvtd8msk.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "503588097549-q4pse24bn7vo50fvc7uuis4eb447p4qh.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "kr.mooca.petdate"
+              }
+            }
+          ]
         }
       }
     }

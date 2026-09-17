@@ -9,7 +9,7 @@ class StepIndicator extends StatelessWidget {
   const StepIndicator({
     super.key,
     required this.current,
-    this.total = 4,
+    this.total = 5,
   });
 
   /// 0-based current step.
@@ -136,50 +136,53 @@ class EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(AppSpacing.xl),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 72,
-            height: 72,
-            decoration: BoxDecoration(
-              color: AppColors.surfaceMuted,
-              borderRadius: BorderRadius.circular(AppRadius.card),
+    return SizedBox.expand(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.xl),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: AppColors.surfaceMuted,
+                borderRadius: BorderRadius.circular(AppRadius.card),
+              ),
+              child: Icon(icon, color: AppColors.textMuted, size: 32),
             ),
-            child: Icon(icon, color: AppColors.textMuted, size: 32),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: AppTypography.body.copyWith(color: AppColors.textMuted),
-          ),
-          if (hint != null) ...[
-            const SizedBox(height: AppSpacing.sm),
+            const SizedBox(height: AppSpacing.lg),
             Text(
-              hint!,
+              message,
               textAlign: TextAlign.center,
-              style: AppTypography.caption,
+              style: AppTypography.body.copyWith(color: AppColors.textMuted),
             ),
+            if (hint != null) ...[
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                hint!,
+                textAlign: TextAlign.center,
+                style: AppTypography.caption,
+              ),
+            ],
+            if (actionLabel != null && onAction != null) ...[
+              const SizedBox(height: AppSpacing.xl),
+              SizedBox(
+                width: 200,
+                child: outlineAction
+                    ? PrimaryOutlineButton(
+                        label: actionLabel!,
+                        onPressed: onAction,
+                      )
+                    : PrimaryButton(
+                        label: actionLabel!,
+                        onPressed: onAction,
+                      ),
+              ),
+            ],
           ],
-          if (actionLabel != null && onAction != null) ...[
-            const SizedBox(height: AppSpacing.xl),
-            SizedBox(
-              width: 200,
-              child: outlineAction
-                  ? PrimaryOutlineButton(
-                      label: actionLabel!,
-                      onPressed: onAction,
-                    )
-                  : PrimaryButton(
-                      label: actionLabel!,
-                      onPressed: onAction,
-                    ),
-            ),
-          ],
-        ],
+        ),
       ),
     );
   }

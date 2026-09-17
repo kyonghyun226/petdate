@@ -1,12 +1,20 @@
 rules_version = '2';
 
-// Minimal Storage stub. Photo upload / CDN pipeline is follow-up.
-// Intended object layout (not enabled yet):
-//   pets/{uid}/{fileName}  — owner write, authenticated read
-// Do not open test-mode write. Deny everything until the media PR.
+// Pet card photos. Object path must match Firestore `pets/{uid}.photos[]`:
+//   pets/{uid}/{fileName}
+// Owner write; any signed-in user may read (explore / detail).
 
 service firebase.storage {
   match /b/{bucket}/o {
+    match /pets/{uid}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.size < 8 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+
     match /{allPaths=**} {
       allow read, write: if false;
     }

@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:petdate/copy/app_copy.dart';
 import 'package:petdate/data/backend_mode.dart';
+import 'package:petdate/data/demo_mode.dart';
+import 'package:petdate/data/mock_profiles.dart';
 import 'package:petdate/data/mock_social_repository.dart';
 import 'package:petdate/data/social_providers.dart';
 import 'package:petdate/firebase/firestore_ids.dart';
@@ -59,6 +61,11 @@ class ChatNotifier extends Notifier<ChatState> {
     ref.watch(sessionLoggedInTickProvider);
     _msgSeq = 0;
     if (ref.watch(useMockDataProvider)) {
+      if (ref.watch(demoCatalogActiveProvider)) {
+        final uid = ref.watch(sessionProvider.select((s) => s.uid)) ??
+            DemoMode.uid;
+        return ChatState(threads: _mockThreads(DateTime.now(), myUid: uid));
+      }
       return const ChatState();
     }
 
@@ -111,10 +118,28 @@ class ChatNotifier extends Notifier<ChatState> {
         (prev.messages.isNotEmpty &&
             incoming.messages.isNotEmpty &&
             prev.messages.last.id != incoming.messages.last.id);
+    var merged = incoming;
     if (!prev.unread) {
-      return incoming.copyWith(unread: newActivity && incoming.unread);
+      merged = incoming.copyWith(unread: newActivity && incoming.unread);
     }
-    return incoming;
+    if (prev.opened) {
+      merged = merged.copyWith(opened: true);
+    }
+    return merged;
+  }
+
+  void markOpened(String threadId) {
+    var changed = false;
+    final next = <ChatThread>[];
+    for (final t in state.threads) {
+      if (t.id == threadId && !t.opened) {
+        next.add(t.copyWith(opened: true));
+        changed = true;
+      } else {
+        next.add(t);
+      }
+    }
+    if (changed) state = ChatState(threads: next);
   }
 
   ChatThread ensureMatchThread(DiscoveryProfile profile) {
@@ -265,6 +290,113 @@ class ChatNotifier extends Notifier<ChatState> {
   }
 
   String _nextId() => 'msg_${_msgSeq++}';
+}
+
+List<ChatThread> _mockThreads(DateTime now, {required String myUid}) {
+  DiscoveryProfile must(String id) {
+    final profile = MockCatalog.byId(id);
+    if (profile == null) {
+      throw StateError('missing mock profile $id');
+    }
+    return profile;
+  }
+
+  final uid = myUid;
+  final dal = must('dal');
+  final kong = must('kong');
+  final bam = must('bam');
+
+  final dalId = FirestoreIds.matchId(uid, dal.id);
+  final kongId = FirestoreIds.matchId(uid, kong.id);
+  final bamId = FirestoreIds.matchId(uid, bam.id);
+
+  return [
+    ChatThread(
+      id: dalId,
+      profile: dal,
+      messages: [
+        ChatMessage(
+          id: 'sys_$dalId',
+          text: AppCopy.chatSystemMatch,
+          isMine: false,
+          kind: ChatMessageKind.system,
+        ),
+        const ChatMessage(
+          id: 'demo_dal_1',
+          text: '주말 아침 산책 가능해요',
+          isMine: false,
+        ),
+        const ChatMessage(
+          id: 'demo_dal_2',
+          text: '좋아요! 한강 어때요?',
+          isMine: true,
+        ),
+      ],
+      updatedAt: now.subtract(const Duration(hours: 1)),
+      unread: true,
+      participantIds: {uid, dal.id},
+    ),
+    ChatThread(
+      id: kongId,
+      profile: kong,
+      messages: [
+        ChatMessage(
+          id: 'sys_$kongId',
+          text: AppCopy.chatSystemMatch,
+          isMine: false,
+          kind: ChatMessageKind.system,
+        ),
+        ChatMessage(
+          id: 'demo_kong_1',
+          text: MeetupCopy.cardText(
+            const MeetupProposal(
+              place: MeetupPlace.park,
+              placeDetail: '',
+              timeLabel: AppCopy.meetupTonight,
+              memo: '',
+            ),
+          ),
+          isMine: false,
+          kind: ChatMessageKind.meetup,
+          receipt: MeetupReceipt.pending,
+          proposal: const MeetupProposal(
+            place: MeetupPlace.park,
+            placeDetail: '',
+            timeLabel: AppCopy.meetupTonight,
+            memo: '',
+          ),
+        ),
+      ],
+      updatedAt: now.subtract(const Duration(hours: 3)),
+      unread: true,
+      participantIds: {uid, kong.id},
+    ),
+    ChatThread(
+      id: bamId,
+      profile: bam,
+      messages: [
+        ChatMessage(
+          id: 'sys_$bamId',
+          text: AppCopy.chatSystemMatch,
+          isMine: false,
+          kind: ChatMessageKind.system,
+        ),
+        const ChatMessage(
+          id: 'demo_bam_1',
+          text: '조용한 카페에서 만나볼까요?',
+          isMine: true,
+        ),
+        const ChatMessage(
+          id: 'demo_bam_2',
+          text: '좋아요, 이번 주말 가능해요',
+          isMine: false,
+        ),
+      ],
+      updatedAt: now.subtract(const Duration(days: 1)),
+      unread: false,
+      participantIds: {uid, bam.id},
+    ),
+  ];
 }
 
 final chatProvider = NotifierProvider<ChatNotifier, ChatState>(

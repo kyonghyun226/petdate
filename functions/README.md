@@ -4,8 +4,9 @@ Adult ID verification (product **A02**) records `users/{uid}.verifiedAt` here
 via the Admin SDK. Firestore rules on `main` **deny** client create/update of
 that field; likes and match creates require it to be a timestamp.
 
-Do **not** write `verifiedAt` from Flutter. After the A02 verify UI succeeds
-(mock or real vendor), call `markUserVerified`.
+Do **not** write `verifiedAt` from Flutter. After Firebase Phone SMS
+succeeds and the phone credential is **linked** to the Google/Apple user,
+call `markUserVerified`.
 
 ## Contract for 앱개발자 (A02)
 
@@ -14,7 +15,7 @@ Do **not** write `verifiedAt` from Flutter. After the A02 verify UI succeeds
 | Name | `markUserVerified` |
 | Type | HTTPS callable (2nd gen) |
 | Region | `asia-northeast3` |
-| Auth | Firebase Auth required (`request.auth.uid`) |
+| Auth | Firebase Auth required (`request.auth.uid`) with `phone_number` claim |
 | Target | `users/{callerUid}` only |
 | Write | `verifiedAt = FieldValue.serverTimestamp()` |
 | Idempotent | If `verifiedAt` is already a timestamp, it is left unchanged |
@@ -25,20 +26,24 @@ The function uses Admin `update` and returns `failed-precondition` if the
 doc is missing. Creating a stub with only `verifiedAt` would block the
 client's later profile create.
 
+The caller must have completed Firebase Phone Auth and linked the phone to
+the existing account. Missing `phone_number` on the ID token returns
+`failed-precondition`.
+
 If A02 UI runs before the first user-doc write (O01 / profile): keep a
 local “passed verify” flag and call this **after** `users/{uid}` is created.
 
 Passing another user's `uid` in the payload is **denied**. The write always
 uses the Auth token uid.
 
-### Flutter (after A02 success)
+### Flutter (after Phone SMS link)
 
 Add `cloud_functions` next to the existing Firebase packages, then:
 
 ```dart
 import 'package:cloud_functions/cloud_functions.dart';
 
-/// Call only after the A02 verify UI succeeds.
+/// Call only after Phone SMS is linked to the current user.
 /// Never write users/{uid}.verifiedAt from the client.
 Future<({String uid, DateTime verifiedAt})> completeIdVerification() async {
   final callable = FirebaseFunctions.instanceFor(region: 'asia-northeast3')
@@ -65,7 +70,7 @@ Unhandled callable errors to expect:
 | --- | --- |
 | `unauthenticated` | No Firebase Auth session |
 | `permission-denied` | Payload `uid` is not the caller |
-| `failed-precondition` | `users/{uid}` does not exist yet |
+| `failed-precondition` | `users/{uid}` does not exist yet, or phone not linked |
 
 ## Deploy
 
@@ -179,8 +184,9 @@ npx -y firebase-tools@latest emulators:start \
 
 ## ID vendor (later)
 
-The Korean provider (PASS / NICE / KCB / …) is **stubbed**. When a webhook
-exists, verify the vendor signature, map the session to a Firebase uid, and
-call `setVerifiedAtForUid` in `src/verifiedAt.ts`. Do not let the client
-write `verifiedAt`, and do not expose an unauthenticated “set uid” HTTP
-endpoint.
+A02 currently uses **Firebase Phone SMS** (link phone to Google/Apple, then
+`markUserVerified`). A Korean provider (PASS / NICE / KCB / …) can replace or
+augment SMS later: verify the vendor signature, map the session to a Firebase
+uid, and call `setVerifiedAtForUid` in `src/verifiedAt.ts`. Do not let the
+client write `verifiedAt`, and do not expose an unauthenticated “set uid”
+HTTP endpoint.

@@ -1,20 +1,25 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:petdate/copy/app_copy.dart';
+import 'package:flutter/foundation.dart';
 import 'package:petdate/firebase/identity_contract.dart';
 import 'package:petdate/firebase/identity_remote.dart';
+import 'package:petdate/firebase/owner_codec.dart';
 import 'package:petdate/firebase/pet_codec.dart';
+import 'package:petdate/firebase/pet_photo_storage.dart';
 import 'package:petdate/state/profile_provider.dart';
 
 class RemoteSessionSnapshot {
   const RemoteSessionSnapshot({
-    this.goal,
     this.verifiedAt,
     this.pet,
+    this.loadFailed = false,
   });
 
-  final UserGoal? goal;
   final DateTime? verifiedAt;
   final ProfileDraft? pet;
+
+  /// True when Firestore threw (offline / rules). Callers must not treat this
+  /// as "no pet" for returning users.
+  final bool loadFailed;
 }
 
 /// Load users/{uid} + pets/{uid} after a persisted Auth session.
@@ -24,38 +29,69 @@ abstract final class SessionBootstrap {
     final uid = IdentityRemote.authUid;
     if (uid == null) return null;
 
+    try {
+      return await _loadOnce(uid);
+    } on Object catch (first) {
+      assert(() {
+        debugPrint('SessionBootstrap first attempt failed: $first');
+        return true;
+      }());
+      try {
+        return await _loadOnce(uid);
+      } on Object catch (second) {
+        assert(() {
+          debugPrint('SessionBootstrap retry failed: $second');
+          return true;
+        }());
+        return const RemoteSessionSnapshot(loadFailed: true);
+      }
+    }
+  }
+
+  static Future<RemoteSessionSnapshot> _loadOnce(String uid) async {
     final user = await FirebaseFirestore.instance
         .collection(IdentityContract.usersCollection)
         .doc(uid)
         .get();
-    UserGoal? goal;
     DateTime? verifiedAt;
+    OwnerAgeBand? ownerAgeBand;
+    OwnerGender? ownerGender;
+    DogExperience? dogExperience;
     if (user.exists) {
       final data = user.data();
-      final rawGoal = data?['goal'] as String?;
-      if (rawGoal == 'walk') {
-        goal = UserGoal.walk;
-      } else if (rawGoal == 'friend') {
-        goal = UserGoal.friend;
-      }
       final rawVerified = data?[IdentityContract.verifiedAtField];
       if (rawVerified is Timestamp) {
         verifiedAt = rawVerified.toDate().toUtc();
       }
+      ownerAgeBand = OwnerCodec.parseAgeBand(data?[OwnerCodec.ageBandField]);
+      ownerGender = OwnerCodec.parseGender(data?[OwnerCodec.genderField]);
+      dogExperience =
+          OwnerCodec.parseExperience(data?[OwnerCodec.experienceField]);
     }
 
     final petSnap = await FirebaseFirestore.instance
         .collection(IdentityContract.petsCollection)
         .doc(uid)
         .get();
-    final pet = petSnap.exists
+    var pet = petSnap.exists
         ? PetCodec.toDraft(petSnap.id, petSnap.data())
         : null;
+    if (pet != null &&
+        (ownerAgeBand != null ||
+            ownerGender != null ||
+            dogExperience != null)) {
+      pet = pet.copyWith(
+        ownerAgeBand: ownerAgeBand,
+        ownerGender: ownerGender,
+        dogExperience: dogExperience,
+      );
+    }
 
     return RemoteSessionSnapshot(
-      goal: goal,
       verifiedAt: verifiedAt,
-      pet: pet,
+      pet: pet == null
+          ? null
+          : await PetPhotoStorage.resolveRemoteUrls(pet, uid: uid),
     );
   }
 }

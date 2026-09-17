@@ -5,11 +5,12 @@ import 'package:petdate/flow/app_nav.dart';
 import 'package:petdate/flow/spark_actions.dart';
 import 'package:petdate/models/discovery_profile.dart';
 import 'package:petdate/state/feed_provider.dart';
-import 'package:petdate/state/session_provider.dart';
+import 'package:petdate/state/search_filter_provider.dart';
 import 'package:petdate/state/user_doc_provider.dart';
 import 'package:petdate/theme/tokens.dart';
 import 'package:petdate/widgets/chips.dart';
 import 'package:petdate/widgets/common.dart';
+import 'package:petdate/widgets/main_tab_app_bar.dart';
 import 'package:petdate/widgets/pet_photo.dart';
 
 class H01HomeScreen extends ConsumerWidget {
@@ -17,77 +18,127 @@ class H01HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final goal =
-        ref.watch(sessionProvider.select((s) => s.goal)) ?? UserGoal.friend;
     final feed = ref.watch(feedProvider);
+    final filter = ref.watch(searchFilterProvider);
     final current = feed.current;
 
     return Scaffold(
       backgroundColor: AppColors.bg,
-      appBar: AppBar(
-        title: Text(GoalCopy.homeTitle(goal)),
-        automaticallyImplyLeading: false,
-      ),
-      body: Column(
+      appBar: const MainTabAppBar(title: AppCopy.homeTitle),
+      body: Stack(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.lg,
-              AppSpacing.xs,
-              AppSpacing.lg,
-              AppSpacing.sm,
-            ),
-            child: _SpeciesFilterBar(
-              value: feed.speciesFilter,
-              onChanged: ref.read(feedProvider.notifier).setSpeciesFilter,
-            ),
-          ),
-          Expanded(
+          Positioned.fill(
             child: current == null
                 ? EmptyState(
-                    message: GoalCopy.homeEmpty(goal),
-                    icon: goal == UserGoal.friend
-                        ? Icons.pets_outlined
-                        : Icons.directions_walk_outlined,
-                    actionLabel: AppCopy.refresh,
-                    onAction: ref.read(feedProvider.notifier).refresh,
+                    message: filter.isActive
+                        ? AppCopy.filterEmpty
+                        : AppCopy.homeEmpty,
+                    icon: filter.isActive
+                        ? Icons.tune_rounded
+                        : Icons.pets_outlined,
+                    actionLabel: filter.isActive
+                        ? AppCopy.filterClearAction
+                        : AppCopy.refresh,
+                    onAction: filter.isActive
+                        ? () =>
+                            ref.read(searchFilterProvider.notifier).clear()
+                        : ref.read(feedProvider.notifier).refresh,
                   )
                 : _FocusedCard(profile: current),
           ),
+          const _DraggableFilterFab(),
         ],
       ),
     );
   }
 }
 
-class _SpeciesFilterBar extends StatelessWidget {
-  const _SpeciesFilterBar({required this.value, required this.onChanged});
+class _DraggableFilterFab extends StatefulWidget {
+  const _DraggableFilterFab();
 
-  final SpeciesFilter value;
-  final ValueChanged<SpeciesFilter> onChanged;
+  @override
+  State<_DraggableFilterFab> createState() => _DraggableFilterFabState();
+}
+
+class _DraggableFilterFabState extends State<_DraggableFilterFab> {
+  static const double _margin = AppSpacing.lg;
+  static const double _defaultTop = AppSpacing.lg;
+
+  Offset? _offset;
+
+  void _ensureOffset(Size area) {
+    if (_offset != null) return;
+    _offset = Offset(
+      area.width - AppSizes.filterFab - _margin,
+      _defaultTop,
+    );
+  }
+
+  Offset _clamp(Offset raw, Size area) {
+    final maxX = (area.width - AppSizes.filterFab).clamp(0.0, double.infinity);
+    final maxY =
+        (area.height - AppSizes.filterFab).clamp(0.0, double.infinity);
+    return Offset(
+      raw.dx.clamp(0.0, maxX),
+      raw.dy.clamp(0.0, maxY),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        SelectableChip(
-          label: AppCopy.filterAll,
-          selected: value == SpeciesFilter.all,
-          onTap: () => onChanged(SpeciesFilter.all),
-        ),
-        const SizedBox(width: AppSpacing.sm),
-        SelectableChip(
-          label: AppCopy.speciesDog,
-          selected: value == SpeciesFilter.dog,
-          onTap: () => onChanged(SpeciesFilter.dog),
-        ),
-        const SizedBox(width: AppSpacing.sm),
-        SelectableChip(
-          label: AppCopy.speciesCat,
-          selected: value == SpeciesFilter.cat,
-          onTap: () => onChanged(SpeciesFilter.cat),
-        ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final area = Size(constraints.maxWidth, constraints.maxHeight);
+        _ensureOffset(area);
+        final pos = _clamp(_offset!, area);
+        if (_offset != pos) {
+          _offset = pos;
+        }
+
+        return Stack(
+          children: [
+            Positioned(
+              left: pos.dx,
+              top: pos.dy,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                // Tap opens the sheet; pan alone never fires on a still press
+                // (touch slop), so onTap is required for the filter FAB.
+                onTap: () => openSearchFilter(context),
+                onPanUpdate: (details) {
+                  setState(() {
+                    _offset = _clamp(_offset! + details.delta, area);
+                  });
+                },
+                child: Tooltip(
+                  message: AppCopy.filterTooltip,
+                  child: Material(
+                    key: const ValueKey('filter-fab'),
+                    color: AppColors.surface,
+                    shape: const CircleBorder(
+                      side: BorderSide(
+                        color: AppColors.border,
+                        width: 1.5,
+                      ),
+                    ),
+                    elevation: 3,
+                    shadowColor: Colors.black.withValues(alpha: 0.16),
+                    child: const SizedBox(
+                      width: AppSizes.filterFab,
+                      height: AppSizes.filterFab,
+                      child: Icon(
+                        Icons.tune_rounded,
+                        size: 24,
+                        color: AppColors.text,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -306,7 +357,8 @@ class _ProfileCard extends StatelessWidget {
                 child: AspectRatio(
                   aspectRatio: AppSizes.cardPhotoAspect,
                   child: PetPhoto(
-                    seed: profile.photoSeeds.first,
+                    seed: profile.mainPhotoSeed,
+                    assetPath: profile.mainPhotoAsset,
                     iconSize: 72,
                   ),
                 ),
@@ -330,6 +382,17 @@ class _ProfileCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: AppTypography.title.copyWith(fontSize: 18),
                       ),
+                      if (profile.ownerSummary != null) ...[
+                        const SizedBox(height: AppSpacing.xs),
+                        Text(
+                          '${AppCopy.ownerSectionLabel} · ${profile.ownerSummary}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.caption.copyWith(
+                            color: AppColors.textMuted,
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: AppSpacing.sm),
                       TagKeyWrap(keys: profile.tagKeys, limit: 3, tiny: true),
                       const SizedBox(height: AppSpacing.sm),
@@ -358,9 +421,5 @@ class _ProfileCard extends StatelessWidget {
     );
   }
 
-  String _distance(double km) {
-    if (km <= 0) return '근처';
-    if (km < 1) return '${(km * 1000).round()}m';
-    return '${km.toStringAsFixed(1)}km';
-  }
+  String _distance(double km) => formatPetDistance(km);
 }

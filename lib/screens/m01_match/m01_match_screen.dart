@@ -5,7 +5,6 @@ import 'package:petdate/models/discovery_profile.dart';
 import 'package:petdate/push/push_providers.dart';
 import 'package:petdate/screens/c02_chat_room/c02_chat_room_screen.dart';
 import 'package:petdate/state/profile_provider.dart';
-import 'package:petdate/state/session_provider.dart';
 import 'package:petdate/theme/tokens.dart';
 import 'package:petdate/widgets/buttons.dart';
 import 'package:petdate/widgets/pet_photo.dart';
@@ -37,8 +36,6 @@ class _M01MatchScreenState extends ConsumerState<M01MatchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final goal =
-        ref.watch(sessionProvider.select((s) => s.goal)) ?? UserGoal.friend;
     final mine = ref.watch(profileDraftProvider);
 
     return Scaffold(
@@ -71,14 +68,15 @@ class _M01MatchScreenState extends ConsumerState<M01MatchScreen> {
                   ),
                   const SizedBox(width: AppSpacing.lg),
                   _CirclePhoto(
-                    seed: widget.profile.photoSeeds.first,
+                    seed: widget.profile.mainPhotoSeed,
+                    assetPath: widget.profile.mainPhotoAsset,
                     label: widget.profile.name,
                   ),
                 ],
               ),
               const SizedBox(height: AppSpacing.xxl),
               Text(
-                GoalCopy.matchBody(goal, mine.displayName, widget.profile.name),
+                AppCopy.matchBody(mine.displayName, widget.profile.name),
                 textAlign: TextAlign.center,
                 style: AppTypography.body,
               ),
@@ -110,9 +108,14 @@ class _M01MatchScreenState extends ConsumerState<M01MatchScreen> {
 }
 
 class _CirclePhoto extends StatelessWidget {
-  const _CirclePhoto({required this.seed, required this.label});
+  const _CirclePhoto({
+    required this.seed,
+    required this.label,
+    this.assetPath,
+  });
 
   final int seed;
+  final String? assetPath;
   final String label;
 
   @override
@@ -133,7 +136,12 @@ class _CirclePhoto extends StatelessWidget {
                 ),
               ],
             ),
-            child: PetPhoto(seed: seed, circle: true, iconSize: 48),
+            child: PetPhoto(
+              seed: seed,
+              assetPath: assetPath,
+              circle: true,
+              iconSize: 48,
+            ),
           ),
         ),
         const SizedBox(height: AppSpacing.sm),

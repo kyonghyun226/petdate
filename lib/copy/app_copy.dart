@@ -1,72 +1,83 @@
 import 'package:petdate/constants/app_constants.dart';
 import 'package:petdate/models/pet_tag.dart';
 
-/// Goal-aware copy. [friend] = 펫 친구, [walk] = 산책 메이트.
-enum UserGoal { friend, walk }
-
 abstract final class AppCopy {
   static const appName = '반짝산책';
-  static const loginTitle = '반려의 짝, 가볍게 반짝';
+  static const loginTitle = '반려견의 짝꿍과 함께 산책해요';
   static const loginCaption = '펫 친구 · 산책 메이트';
   static const loginGoogle = 'Google로 계속하기';
   static const loginApple = 'Apple로 계속하기';
-  static const loginTerms =
-      '계속하면 이용약관 및 개인정보 처리방침에 동의하는 것으로 볼게요.';
+  static const loginGuestPreview = '로그인 없이 둘러보기';
   static const loginFailed = '로그인에 실패했어요. 다시 시도해 주세요.';
 
   /// Play / App Store listing placeholders (not shown in-app).
-  static const storeSubtitle = '반려 친구 · 산책 메이트 찾기';
+  static const storeSubtitle = '반려견 친구 · 산책 메이트 찾기';
   static const storeTagline =
       '우리 반려의 짝을 찾아요. 친구 사귀기부터 같이 산책하기까지.';
 
-  static const filterAll = '전체';
   static const meetupAccept = '수락';
   static const meetupCounter = '다른 시간 제안';
   static const meetupIgnore = '무시';
   static const meetupAccepted = '수락했어요';
   static const meetupCountered = '다른 시간을 제안했어요';
   static const meetupIgnored = '무시했어요';
-  static const petNounFallback = '반려';
+  static const petNounFallback = '반려견';
   static const petNounDog = '강아지';
-  static const petNounCat = '고양이';
 
   static const onboardingStart = '시작하기';
   static const alreadyHaveAccount = '이미 계정 있어요';
 
   static const List<OnboardingPageCopy> onboardingPages = [
     OnboardingPageCopy(
-      title: '우리 반려의 짝을 찾아요',
+      title: '우리 반려견의 짝꿍을 찾아요',
       body: '우리 아이랑 잘 맞는 친구, 같이 산책할 메이트를 반짝 만나보세요.',
     ),
     OnboardingPageCopy(
-      title: '친구 사귀기 · 같이 산책하기',
-      body: '원하는 목적만 고르면, 라이프스타일이 맞는 견주·묘주를 추천해 드려요.',
+      title: '라이프스타일이 맞는 견주',
+      body: '태그·시간대를 알려 주시면, 잘 맞는 반려견 친구를 추천해 드려요.',
     ),
     OnboardingPageCopy(
       title: '안전하게, 반짝',
-      body: '본인인증으로 시작하고, 불편하면 차단·신고도 바로. 준비됐으면 Google 또는 Apple로 시작해요.',
+      body: '반려견등록 인증으로 시작하고, 불편하면 차단·신고도 바로. 준비됐으면 Google 또는 Apple로 시작해요.',
     ),
   ];
 
-  static const goalQuestion = '반짝산책에서 무엇을 하고 싶어요?';
-  static const goalFriendTitle = '친구 사귀기';
-  static const goalFriendDesc = '우리 반려의 친구를 만나요';
-  static const goalWalkTitle = '같이 산책하기';
-  static const goalWalkDesc = '주말에 같이 걸을 짝을 찾아요';
-  static const goalApply = '적용하기';
-
   static const next = '다음';
   static const startSpark = '반짝 시작하기';
+  static const saveProfile = '저장하기';
+  static const profileSaveFailed = '프로필을 저장하지 못했어요. 다시 시도해 주세요.';
   static const refresh = '새로고침';
   static const later = '나중에';
   static const startChat = '채팅 시작';
+  static const startConversation = '대화 시작하기';
   static const send = '보내기';
   static const goHome = '홈으로';
 
   static const navHome = '홈';
   static const navSpark = '반짝';
   static const navChat = '채팅';
-  static const navMy = '마이';
+  static const navMeongstar = '멍스타';
+  static const navMy = '마이페이지';
+
+  static const homeTitle = '오늘의 반짝 친구';
+  static const homeEmpty =
+      '아직 근처에 반짝할 친구가 없어요. 조금 이따 다시 봐볼까요?';
+  static const meongstarEmpty = '아직 등록된 강아지가 없어요';
+  static const bioPlaceholder = '초코는 새 친구를 기다리면 꼬리가 먼저 반짝해요';
+
+  static const noseGreeting = '코인사';
+  static const noseGreetingTooltip = '코인사하기';
+  static String noseGreetingCount(int count) => '코인사 $count';
+
+  /// Send-like CTA on D01 (오늘의 반짝 친구 → 프로필). Uses *my* pet name.
+  static String detailCta(String myPetName) => '우리 $myPetName와 친구하자!';
+
+  /// Reply CTA on D01 opened from B01 received. Uses *their* pet name.
+  static String sparkReplyCta(String theirPetName) =>
+      '우리 $theirPetName와 친구될래?';
+
+  static String matchBody(String mine, String theirs) =>
+      '$mine와 $theirs가 친구가 됐어요. 인사해 볼까요?';
 
   static const sparkReceived = '받은';
   static const sparkSent = '보낸';
@@ -84,6 +95,8 @@ abstract final class AppCopy {
   static const blockMenuItem = '차단';
   static const chatInputHint = '메시지 보내기';
 
+  static const p00Title = '견주 정보';
+  static const p00Subtitle = '우리 반려견을 돌보는 분에 대해 알려 주세요.';
   static const p01Title = '기본 정보';
   static const p02Title = '사진';
   static const p03Title = '태그';
@@ -91,13 +104,30 @@ abstract final class AppCopy {
   static const p03TimeHint = '편한 시간대를 1~3개 골라 주세요.';
   static const p04Title = '한 줄 소개';
 
+  static const ownerAgeLabel = '나이대';
+  static const ownerAgeTwenties = '20대';
+  static const ownerAgeThirties = '30대';
+  static const ownerAgeForties = '40대';
+  static const ownerAgeFiftiesPlus = '50대 이상';
+
+  static const ownerGenderLabel = '성별';
+  static const ownerGenderMale = '남성';
+  static const ownerGenderFemale = '여성';
+
+  static const dogExperienceLabel = '반려견을 키운 경험';
+  static const dogExperienceHint = '지금까지 반려견과 함께한 기간을 골라 주세요.';
+  static const dogExperienceFirst = '처음이에요';
+  static const dogExperienceUnderOne = '1년 미만';
+  static const dogExperienceOneToThree = '1–3년';
+  static const dogExperienceThreeToFive = '3–5년';
+  static const dogExperienceOverFive = '5년 이상';
+  static const ownerSectionLabel = '견주';
+  static const ownerExperienceShortPrefix = '경험';
+
   static const petNameLabel = '이름';
-  static const petNameHint = '반려 이름';
-  static const speciesLabel = '견 / 묘';
-  static const speciesDog = '견';
-  static const speciesCat = '묘';
+  static const petNameHint = '반려견 이름';
   static const breedLabel = '품종';
-  static const breedHint = '예: 말티즈, 코리안숏헤어';
+  static const breedHint = '예: 말티즈, 포메라니안';
   static const ageOrBirthLabel = '나이 / 생년월';
   static const ageTab = '나이';
   static const birthTab = '생년월';
@@ -128,14 +158,31 @@ abstract final class AppCopy {
   static const tagMinRequired = '태그를 3개 이상 골라 주세요.';
   static const timeSlotRequired = '시간대를 1개 이상 골라 주세요.';
 
-  static const myChangeGoal = '목적 변경';
+  static const myTermsOfService = '이용약관';
+  static const myPrivacyPolicy = '개인정보 처리방침';
   static const mySettings = '설정';
   static const myLogout = '로그아웃';
+  static const myDeleteAccount = '계정 탈퇴';
+  static const deleteAccountTitle = '계정을 탈퇴할까요?';
+  static const deleteAccountBody =
+      '프로필·매칭·채팅 등 계정 정보가 삭제되며 되돌릴 수 없어요.';
+  static const deleteAccountConfirm = '탈퇴하기';
+  static const deleteAccountCancel = '취소';
+  static const deleteAccountFailed = '탈퇴에 실패했어요. 다시 시도해 주세요.';
   static const settingsTitle = '설정';
-  static const settingsRadius = '검색 반경';
-  static const settingsEnableNotifications = '알림 켜기';
+  static const settingsLocation = '위치';
+  static const settingsLocationHint = '근처 산책 친구를 거리 순으로 보여드려요';
+  static const settingsNotifications = '알림';
   static const settingsNotificationsHint = '매칭·새 인사·만남 제안을 알려드려요';
-  static const settingsSoon = '계정 설정은 곧 열려요.';
+  static const settingsRadius = '검색 반경';
+
+  /// Shown once on first main entry — never at splash/login/signup.
+  static const locationPrepromptTitle = '근처 친구를 찾아볼까요?';
+  static const locationPrepromptBody =
+      '위치를 허용하면 검색 반경 안의 산책 친구를 보여드려요. '
+      '정확한 주소는 저장하지 않고, 대략적인 위치만 사용해요.';
+  static const locationPrepromptAllow = '허용하기';
+  static const locationPrepromptDeny = '나중에';
 
   /// Shown once, immediately after the first M01 match — never at signup.
   static const pushPrepromptTitle = '반짝 소식 받으실래요?';
@@ -155,16 +202,49 @@ abstract final class AppCopy {
   static const likeTooltip = '좋아요';
   static const likeNeedsVerify = '인증 후 반짝할 수 있어요';
 
-  static const verifyTitle = '본인인증';
-  static const verifyBody = '반짝하려면 본인인증이 필요해요. 인증이 끝나면 친구 사귀기·같이 산책하기를 바로 이어갈 수 있어요.';
-  static const verifyCta = '인증하기';
+  static const filterTooltip = '검색 필터';
+  static const filterTitle = '검색 필터';
+  static const filterSubtitle = '원하는 반려견·견주 조건으로 반짝 친구를 찾아보세요.';
+  static const filterRadiusLabel = '검색 반경';
+  static const filterPetSection = '반려견';
+  static const filterOwnerSection = '견주';
+  static const filterAgeLabel = '나이';
+  static const filterAgeUnderOne = '1살 미만';
+  static const filterAgeOneToThree = '1–3살';
+  static const filterAgeThreeToSeven = '3–7살';
+  static const filterAgeOverSeven = '7살 이상';
+  static const filterTagsLabel = '라이프스타일';
+  static const filterTimeLabel = '만나는 시간';
+  static const filterApply = '적용하기';
+  static const filterReset = '초기화';
+  static const filterEmpty =
+      '조건에 맞는 친구가 없어요. 필터를 조금 넓혀 볼까요?';
+  static const filterClearAction = '필터 초기화';
+
+  static const verifyTitle = '반려견등록 인증';
+  static const verifyBody =
+      '국가동물보호정보시스템에 등록된 소유주 이름과 동물등록번호를 입력해 주세요. 확인 후 인증 뱃지를 드려요.';
+  static const verifyCta = '심사 요청하기';
+  static const verifyGateCta = '인증하러 가기';
+  static const verifyOwnerHint = '소유주 이름';
+  static const verifyOwnerPlaceholder = '홍길동';
+  static const verifyRegHint = '동물등록번호';
+  static const verifyRegPlaceholder = '410000000000000';
+  static const verifyInvalidOwner = '소유주 이름을 입력해 주세요.';
+  static const verifyInvalidReg = '동물등록번호(숫자)를 확인해 주세요.';
+  static const verifySubmitFailed = '요청을 보내지 못했어요. 잠시 후 다시 시도해 주세요.';
+  static const verifyPendingTitle = '심사를 진행 중이에요';
+  static const verifyPendingBody =
+      '등록 정보를 확인한 뒤 인증 뱃지를 드려요. 보통 영업일 기준 1–2일 걸려요.';
   static const verifyDone = '인증됐어요';
   static const verifySuccessBody = '이제 반짝으로 친구·산책 메이트를 만날 수 있어요';
+  static const verifyAlreadyDoneBody = '반려견등록 인증이 완료되었어요.';
   static const verifyGoSpark = '반짝하러 가기';
   static const verifyGateTitle = '안전하게 반짝해요';
   static const verifyGateBody =
-      '본인인증을 마치면 좋아요를 보낼 수 있어요. 반려 친구·산책 메이트를 위한 한 걸음이에요.';
+      '반려견등록 인증을 마치면 좋아요를 보낼 수 있어요. 반려 친구·산책 메이트를 위한 한 걸음이에요.';
   static const verifyStatusVerified = '인증됨';
+  static const verifyStatusPending = '심사중';
   static const verifyStatusUnverified = '미인증';
 
   static const reportMenu = '신고 · 차단';
@@ -180,8 +260,7 @@ abstract final class AppCopy {
   static const chatSystemMatch =
       '반짝 매칭을 축하해요! 산책이나 카페 약속을 제안해 보세요';
   static const proposeMeetup = '만남 제안';
-  static const meetupFriendTitle = '어디서 만날까요?';
-  static const meetupWalkTitle = '어디서 같이 걸을까요?';
+  static const meetupTitle = '어디서 만날까요?';
   static const meetupPlace = '장소';
   static const meetupTime = '시간';
   static const meetupMemo = '메모';
@@ -206,56 +285,4 @@ class OnboardingPageCopy {
 
   final String title;
   final String body;
-}
-
-abstract final class GoalCopy {
-  static String homeTitle(UserGoal goal) => switch (goal) {
-        UserGoal.friend => '오늘의 반짝 친구',
-        UserGoal.walk => '같이 산책할 짝',
-      };
-
-  static String homeEmpty(UserGoal goal) => switch (goal) {
-        UserGoal.friend => '아직 근처에 반짝할 친구가 없어요. 조금 이따 다시 봐볼까요?',
-        UserGoal.walk => '같이 걸을 짝을 찾는 중이에요. 조금만 기다려 주세요',
-      };
-
-  static String bioPlaceholder(UserGoal goal) => switch (goal) {
-        UserGoal.friend => '초코는 새 친구를 기다리면 꼬리가 먼저 반짝해요',
-        UserGoal.walk => '주말 한강 산책 메이트 구해요 (보호자 함께!)',
-      };
-
-  static String goalChipLabel(UserGoal goal) => switch (goal) {
-        UserGoal.friend => AppCopy.goalFriendTitle,
-        UserGoal.walk => AppCopy.goalWalkTitle,
-      };
-
-  static String detailCta(UserGoal goal, String name) => switch (goal) {
-        UserGoal.friend => '우리 $name와 친구될래?',
-        UserGoal.walk => '우리 $name와 산책할래?',
-      };
-
-  static String matchBody(UserGoal goal, String mine, String theirs) =>
-      switch (goal) {
-        UserGoal.friend => '$mine와 $theirs가 친구가 됐어요. 인사해 볼까요?',
-        UserGoal.walk => '$mine와 $theirs가 산책 짝이 됐어요. 언제 걸어볼까요?',
-      };
-
-  static List<String> firstMessageChips(UserGoal goal, String myPet) =>
-      switch (goal) {
-        UserGoal.friend => [
-            '우리 $myPet는 새 친구 기다리면 꼬리부터 반짝해요',
-            '한강·공원 산책 좋아해요. 같이 가볼래요?',
-            '펫카페도 좋아해요',
-          ],
-        UserGoal.walk => [
-            '주말 아침 산책 가능해요',
-            '퇴근 후 짧게 걸을래요',
-            '이번 주말 시간 맞춰볼까요?',
-          ],
-      };
-
-  static String meetupTitle(UserGoal goal) => switch (goal) {
-        UserGoal.friend => AppCopy.meetupFriendTitle,
-        UserGoal.walk => AppCopy.meetupWalkTitle,
-      };
 }

@@ -64,5 +64,12 @@ class DefaultFirebaseOptions {
     projectId: 'petdatinglove',
     storageBucket: 'petdatinglove.firebasestorage.app',
     iosBundleId: 'kr.mooca.petdate',
+    iosClientId:
+        '503588097549-q4pse24bn7vo50fvc7uuis4eb447p4qh.apps.googleusercontent.com',
   );
+
+  /// Web OAuth client (type 3). Required by [google_sign_in] on Android so
+  /// `authenticate()` returns an `idToken` for Firebase Auth.
+  static const String googleServerClientId =
+      '503588097549-cmbo7o55g9gur4pa86g9095mrvtd8msk.apps.googleusercontent.com';
 }

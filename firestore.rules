@@ -42,14 +42,25 @@ rules_version = '2';
 // Collection: users
 // Document ID: {uid} == request.auth.uid
 // Fields:
-//   - goal: 'friend' | 'walk' (required)
+//   - goal: 'friend' | 'walk' (required create field; legacy —
+//     app no longer offers a goal choice; new docs use 'friend')
 //   - searchRadiusKm: number 1–50 (required; app default 5)
 //   - createdAt: timestamp (required, immutable, == request.time
 //     on create)
 //   - displayName: string 1–40 (optional, P1)
+//   - ownerAgeBand: 'twenties' | 'thirties' | 'forties' |
+//     'fiftiesPlus' (optional; set in profile wizard)
+//   - ownerGender: 'male' | 'female' (optional)
+//   - dogExperience: 'firstTime' | 'underOneYear' | 'oneToThree' |
+//     'threeToFive' | 'overFive' (optional)
 //   - verifiedAt: timestamp (optional). Client cannot create or
-//     change this field. markUserVerified (Admin SDK) sets it
-//     after A02 adult ID verification.
+//     change this field. Admin / markUserVerified sets it after
+//     manual pet-registration review.
+//   - petRegOwnerName: string 1–40 (optional; with other petReg*)
+//   - petRegNumber: string 8–20 digits (optional; with other petReg*)
+//   - petRegStatus: 'pending' (optional; with other petReg*)
+//   - petRegSubmittedAt: timestamp (optional; with other petReg*)
+//     Client may write the petReg* quartet for manual review.
 //
 // Collection: pets
 // Document ID: {petId} == ownerId == auth.uid (1 pet / user)
@@ -64,8 +75,11 @@ rules_version = '2';
 //   - photos: list<string> 1–3 Storage paths pets/{petId}/{file}
 //   - tags: list 3–8, each a key from the fixed 12-tag set
 //   - bio: string 0–140
-//   - preferredTimeSlots: list 1–3 of weekdayEvening |
-//     weekendMorning | weekendAfternoon
+//   - preferredTimeSlots: list 1–3 of weekdayMorning |
+//     weekdayAfternoon | weekdayEvening | weekendMorning |
+//     weekendAfternoon | weekendEvening
+//   - ownerAgeBand / ownerGender / dogExperience: optional,
+//     denormalized from the owner profile for explore/detail
 //   - geohash: string 1–12 (optional; required if latlng set)
 //   - latlng: geopoint, approximate (optional; required if geohash)
 //   - updatedAt: timestamp == request.time on write
@@ -270,7 +284,8 @@ service cloud.firestore {
 
     function isTimeSlot(item) {
       return item in [
-        'weekdayEvening', 'weekendMorning', 'weekendAfternoon'
+        'weekdayMorning', 'weekdayAfternoon', 'weekdayEvening',
+        'weekendMorning', 'weekendAfternoon', 'weekendEvening'
       ];
     }
 
@@ -315,10 +330,30 @@ service cloud.firestore {
         );
     }
 
+    function validPetReg(data) {
+      return (
+          !('petRegOwnerName' in data)
+          && !('petRegNumber' in data)
+          && !('petRegStatus' in data)
+          && !('petRegSubmittedAt' in data)
+        ) || (
+          data.petRegStatus == 'pending'
+          && isNonEmptyString(data.petRegOwnerName, 40)
+          && data.petRegNumber is string
+          && data.petRegNumber.size() >= 8
+          && data.petRegNumber.size() <= 20
+          && data.petRegNumber.matches('^[0-9]+$')
+          && data.petRegSubmittedAt is timestamp
+        );
+    }
+
     function isValidUser(data) {
       return data.keys().hasOnly([
           'goal', 'searchRadiusKm', 'createdAt',
-          'displayName', 'verifiedAt'
+          'displayName', 'verifiedAt',
+          'ownerAgeBand', 'ownerGender', 'dogExperience',
+          'petRegOwnerName', 'petRegNumber',
+          'petRegStatus', 'petRegSubmittedAt'
         ])
         && data.keys().hasAll(['goal', 'searchRadiusKm', 'createdAt'])
         && isGoal(data.goal)
@@ -327,13 +362,26 @@ service cloud.firestore {
         && data.searchRadiusKm <= 50
         && data.createdAt is timestamp
         && (!('displayName' in data)
-            || isNonEmptyString(data.displayName, 40));
+            || isNonEmptyString(data.displayName, 40))
+        && (!('ownerAgeBand' in data)
+            || data.ownerAgeBand in [
+              'twenties', 'thirties', 'forties', 'fiftiesPlus'
+            ])
+        && (!('ownerGender' in data)
+            || data.ownerGender in ['male', 'female'])
+        && (!('dogExperience' in data)
+            || data.dogExperience in [
+              'firstTime', 'underOneYear', 'oneToThree',
+              'threeToFive', 'overFive'
+            ])
+        && validPetReg(data);
     }
 
     function isValidPet(data, petId) {
       return data.keys().hasOnly([
           'ownerId', 'name', 'species', 'breed', 'age', 'sex', 'size',
           'photos', 'tags', 'bio', 'preferredTimeSlots',
+          'ownerAgeBand', 'ownerGender', 'dogExperience',
           'geohash', 'latlng', 'updatedAt'
         ])
         && data.keys().hasAll([
@@ -356,7 +404,18 @@ service cloud.firestore {
         && validTags(data.tags)
         && validTimeSlots(data.preferredTimeSlots)
         && validPhotos(petId, data.photos)
-        && optionalGeo(data);
+        && optionalGeo(data)
+        && (!('ownerAgeBand' in data)
+            || data.ownerAgeBand in [
+              'twenties', 'thirties', 'forties', 'fiftiesPlus'
+            ])
+        && (!('ownerGender' in data)
+            || data.ownerGender in ['male', 'female'])
+        && (!('dogExperience' in data)
+            || data.dogExperience in [
+              'firstTime', 'underOneYear', 'oneToThree',
+              'threeToFive', 'overFive'
+            ]);
     }
 
     function isValidLike(data) {

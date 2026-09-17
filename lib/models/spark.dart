@@ -36,7 +36,7 @@ class SparkItem {
       '${formatSparkDistance(profile.distanceKm)} · ${formatSparkRelativeTime(createdAt, now: now)}';
 }
 
-String formatSparkDistance(double km) => '${km.toStringAsFixed(1)}km';
+String formatSparkDistance(double km) => formatPetDistance(km);
 
 String formatSparkRelativeTime(DateTime at, {DateTime? now}) {
   final delta = (now ?? DateTime.now()).difference(at);

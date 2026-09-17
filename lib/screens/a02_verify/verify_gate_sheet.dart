@@ -31,7 +31,7 @@ Future<bool> showVerifyGateSheet(BuildContext context) async {
             const SizedBox(height: AppSpacing.xl),
             PrimaryButton(
               key: const ValueKey('verify-sheet-go'),
-              label: AppCopy.verifyCta,
+              label: AppCopy.verifyGateCta,
               onPressed: () => Navigator.of(ctx).pop(true),
             ),
             const SizedBox(height: AppSpacing.sm),

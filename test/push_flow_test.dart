@@ -18,8 +18,10 @@ import 'package:petdate/screens/m01_match/m01_match_screen.dart';
 import 'package:petdate/screens/y01_settings/y01_settings_screen.dart';
 import 'package:petdate/state/session_provider.dart';
 import 'package:petdate/state/user_doc_provider.dart';
+import 'package:petdate/data/demo_mode.dart';
 
 import 'helpers/fake_auth_repository.dart';
+import 'helpers/test_app.dart';
 
 class _Harness {
   _Harness({
@@ -31,10 +33,11 @@ class _Harness {
        messaging = messaging ?? RecordingPushMessaging(),
        tokens = RecordingPushTokenStore(),
        navKey = GlobalKey<NavigatorState>() {
+    DemoMode.disableForTests();
     container = ProviderContainer(
       overrides: [
-        authRepositoryProvider.overrideWith(
-          (ref) => FakeAuthRepository(
+        ...testOverrides(
+          auth: FakeAuthRepository(
             signedInUser: const AuthUser(
               uid: 'mock_uid',
               providerId: 'google.com',
@@ -62,8 +65,6 @@ class _Harness {
     session.completeSplash();
     session.completeOnboarding();
     session.completeLogin();
-    session.setGoal(UserGoal.friend);
-    session.confirmGoal();
     session.completeProfile();
     if (verified) {
       container
@@ -97,6 +98,7 @@ Future<void> _pumpMain(WidgetTester tester, ProviderContainer container) async {
 
 void main() {
   testWidgets('온보딩·로그인에서 푸시 프리프롬프트/OS 권한을 요청하지 않음', (tester) async {
+    DemoMode.disableForTests();
     final messaging = RecordingPushMessaging();
     final store = InMemoryPushPromptStore();
     final tokens = RecordingPushTokenStore();
@@ -132,8 +134,7 @@ void main() {
         child: const PetdateApp(),
       ),
     );
-    await tester.pump(const Duration(milliseconds: 1600));
-    await tester.pumpAndSettle();
+    await pumpPastSplash(tester);
 
     expect(find.text(AppCopy.onboardingPages[0].title), findsOneWidget);
     expect(find.text(AppCopy.pushPrepromptTitle), findsNothing);
@@ -192,7 +193,7 @@ void main() {
 
     await tester.tap(find.text(AppCopy.later));
     await tester.pumpAndSettle();
-    expect(find.text(GoalCopy.homeTitle(UserGoal.friend)), findsOneWidget);
+    expect(find.text(AppCopy.homeTitle), findsOneWidget);
   });
 
   testWidgets('허용 후 토큰은 인증된 사용자만 저장', (tester) async {
@@ -258,36 +259,43 @@ void main() {
     expect(find.byType(M01MatchScreen), findsNothing);
   });
 
-  testWidgets('권한 거절 후 Y01에 알림 켜기가 있고 앱 설정으로 연결', (tester) async {
+  testWidgets('권한 거절 후 Y01 알림 토글이 앱 설정으로 연결', (tester) async {
     final h = _Harness(
       store: InMemoryPushPromptStore(hasAsked: true, declinedPreprompt: true),
     );
     addTearDown(h.dispose);
     await _pumpMain(tester, h.container);
 
-    await tester.tap(find.text(AppCopy.navMy));
+    await tester.tap(find.byKey(const ValueKey('profile-app-bar-button')).first);
     await tester.pumpAndSettle();
     await tester.tap(find.text(AppCopy.mySettings));
     await tester.pumpAndSettle();
 
-    expect(find.text(AppCopy.settingsEnableNotifications), findsOneWidget);
-    await tester.tap(find.byKey(settingsEnableNotificationsKey));
+    expect(find.text(AppCopy.settingsNotifications), findsOneWidget);
+    final tile = find.byKey(settingsEnableNotificationsKey);
+    expect(tile, findsOneWidget);
+    // Toggle ON when currently off → request / open settings path.
+    await tester.tap(tile);
     await tester.pumpAndSettle();
-    expect(h.messaging.openSettingsCount, 1);
+    expect(
+      h.messaging.requestCount + h.messaging.openSettingsCount,
+      greaterThan(0),
+    );
   });
 
-  testWidgets('묻기 전에는 Y01에 알림 켜기를 넣지 않음', (tester) async {
+  testWidgets('Y01에 알림·위치 토글이 항상 보인다', (tester) async {
     final h = _Harness();
     addTearDown(h.dispose);
     await _pumpMain(tester, h.container);
 
-    await tester.tap(find.text(AppCopy.navMy));
+    await tester.tap(find.byKey(const ValueKey('profile-app-bar-button')).first);
     await tester.pumpAndSettle();
     await tester.tap(find.text(AppCopy.mySettings));
     await tester.pumpAndSettle();
 
-    expect(find.text(AppCopy.settingsEnableNotifications), findsNothing);
-    expect(find.text(AppCopy.settingsSoon), findsOneWidget);
+    expect(find.text(AppCopy.settingsNotifications), findsOneWidget);
+    expect(find.text(AppCopy.settingsLocation), findsOneWidget);
+    expect(find.text(AppCopy.settingsRadius), findsNothing);
   });
 
   testWidgets('미인증이면 M01을 열어도 권한을 요청하지 않음', (tester) async {

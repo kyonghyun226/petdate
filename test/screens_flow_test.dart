@@ -19,26 +19,22 @@ import 'package:petdate/state/user_doc_provider.dart';
 import 'package:petdate/theme/tokens.dart';
 
 import 'helpers/fake_auth_repository.dart';
+import 'helpers/test_app.dart';
 
 ProviderContainer _loggedIn({
-  UserGoal goal = UserGoal.friend,
   bool verified = true,
 }) {
   final container = ProviderContainer(
-    overrides: [
-      authRepositoryProvider.overrideWith(
-        (ref) => FakeAuthRepository(
-          signedInUser: const AuthUser(uid: 'mock_uid', providerId: 'google.com'),
-        ),
+    overrides: testOverrides(
+      auth: FakeAuthRepository(
+        signedInUser: const AuthUser(uid: 'mock_uid', providerId: 'google.com'),
       ),
-    ],
+    ),
   );
   final session = container.read(sessionProvider.notifier);
   session.completeSplash();
   session.completeOnboarding();
   session.completeLogin();
-  session.setGoal(goal);
-  session.confirmGoal();
   session.completeProfile();
   if (verified) {
     container.read(userDocProvider.notifier).ingestListenSnapshot(
@@ -68,11 +64,11 @@ Future<void> _pumpMain(
 
 void main() {
   testWidgets('H01 shows stack then empty after passing all', (tester) async {
-    final container = _loggedIn(goal: UserGoal.walk);
+    final container = _loggedIn();
     addTearDown(container.dispose);
     await _pumpMain(tester, container);
 
-    expect(find.text(GoalCopy.homeTitle(UserGoal.walk)), findsOneWidget);
+    expect(find.text(AppCopy.homeTitle), findsOneWidget);
     expect(find.textContaining('콩이'), findsWidgets);
     expect(find.byKey(const ValueKey('home-card-kong')), findsOneWidget);
     expect(find.byKey(const ValueKey('home-card-bori')), findsNothing);
@@ -82,12 +78,31 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    expect(find.text(GoalCopy.homeEmpty(UserGoal.walk)), findsOneWidget);
+    expect(find.text(AppCopy.homeEmpty), findsOneWidget);
     expect(find.text(AppCopy.refresh), findsOneWidget);
 
     await tester.tap(find.text(AppCopy.refresh));
     await tester.pumpAndSettle();
     expect(find.textContaining('콩이'), findsWidgets);
+  });
+
+  testWidgets('H01 filter FAB tap opens search filter page', (tester) async {
+    final container = _loggedIn();
+    addTearDown(container.dispose);
+    await _pumpMain(tester, container);
+
+    expect(find.byKey(const ValueKey('filter-fab')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('filter-fab')));
+    await tester.pumpAndSettle();
+
+    expect(find.text(AppCopy.filterTitle), findsOneWidget);
+    expect(find.text(AppCopy.filterApply), findsOneWidget);
+    expect(find.text(AppCopy.filterRadiusLabel), findsOneWidget);
+    expect(find.text('5km'), findsOneWidget);
+    expect(find.text('10km'), findsOneWidget);
+    expect(find.text('20km'), findsOneWidget);
+    expect(find.text('40km'), findsOneWidget);
+    expect(find.byType(Scaffold), findsWidgets);
   });
 
   testWidgets('H01 and D01 like CTAs use sparkle not heart or paw',
@@ -156,7 +171,10 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('home-card-kong')));
     await tester.pumpAndSettle();
-    expect(find.text(GoalCopy.detailCta(UserGoal.friend, '콩이')), findsOneWidget);
+    expect(
+      find.text(AppCopy.detailCta(AppCopy.fallbackPetName)),
+      findsOneWidget,
+    );
     expect(find.textContaining(AppCopy.petNounDog), findsOneWidget);
     expect(find.text('꼬리부터 반짝하는 말티즈예요. 공원에서 친구 만드는 중!'), findsOneWidget);
 
@@ -167,7 +185,27 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('mutual like opens M01 then C02 with chips', (tester) async {
+  testWidgets('D01 nose greeting toggles count next to name', (tester) async {
+    final container = _loggedIn();
+    addTearDown(container.dispose);
+    await _pumpMain(tester, container);
+
+    await tester.tap(find.byKey(const ValueKey('home-card-kong')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('d01-nose')), findsOneWidget);
+    expect(find.text(AppCopy.noseGreetingCount(128)), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('d01-nose')));
+    await tester.pumpAndSettle();
+    expect(find.text(AppCopy.noseGreetingCount(129)), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('d01-nose')));
+    await tester.pumpAndSettle();
+    expect(find.text(AppCopy.noseGreetingCount(128)), findsOneWidget);
+  });
+
+  testWidgets('mutual like opens M01 then C02 with meetup chip', (tester) async {
     final container = _loggedIn();
     addTearDown(container.dispose);
     await _pumpMain(tester, container);
@@ -184,24 +222,6 @@ void main() {
 
     expect(find.text(AppCopy.chatSystemMatch), findsOneWidget);
     expect(find.byKey(const ValueKey('meetup-propose-chip')), findsOneWidget);
-    expect(
-      find.text(GoalCopy.firstMessageChips(UserGoal.friend, AppCopy.fallbackPetName).first),
-      findsOneWidget,
-    );
-
-    await tester.tap(
-      find.text(GoalCopy.firstMessageChips(UserGoal.friend, AppCopy.fallbackPetName).first),
-    );
-    await tester.pump();
-    expect(
-      tester.widget<TextField>(find.byType(TextField)).controller?.text,
-      GoalCopy.firstMessageChips(UserGoal.friend, AppCopy.fallbackPetName).first,
-    );
-    expect(find.text(AppCopy.chatSystemMatch), findsOneWidget);
-    expect(
-      container.read(analyticsProvider).events,
-      contains(MeetKpi.firstMessageTemplateUsed),
-    );
 
     await tester.tap(find.byKey(const ValueKey('meetup-propose-chip')));
     await tester.pumpAndSettle();
@@ -225,7 +245,7 @@ void main() {
     expect(find.text(AppCopy.chatEmpty), findsOneWidget);
     await tester.tap(find.text(AppCopy.goHome));
     await tester.pumpAndSettle();
-    expect(find.text(GoalCopy.homeTitle(UserGoal.friend)), findsOneWidget);
+    expect(find.text(AppCopy.homeTitle), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('like-button')));
     await tester.pumpAndSettle();
@@ -239,33 +259,29 @@ void main() {
     expect(find.byKey(const ValueKey('spark-row-kong')), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('spark-row-kong')));
     await tester.pumpAndSettle();
-    expect(find.text(AppCopy.chatSystemMatch), findsOneWidget);
+    expect(find.text(AppCopy.startConversation), findsOneWidget);
+    expect(find.text(AppCopy.chatSystemMatch), findsNothing);
   });
 
-  testWidgets('Y01 summary, goal change and logout', (tester) async {
-    final container = _loggedIn(goal: UserGoal.friend);
+  testWidgets('Y01 summary and logout', (tester) async {
+    final container = _loggedIn();
     addTearDown(container.dispose);
     container.read(profileDraftProvider.notifier).setPetName('초코');
     await _pumpMain(tester, container);
 
-    await tester.tap(find.text(AppCopy.navMy));
+    await tester.tap(find.byKey(const ValueKey('profile-app-bar-button')).first);
     await tester.pumpAndSettle();
     expect(find.text('초코'), findsOneWidget);
-    expect(find.text(AppCopy.myChangeGoal), findsOneWidget);
+    expect(find.text(AppCopy.myTermsOfService), findsOneWidget);
+    expect(find.text(AppCopy.myPrivacyPolicy), findsOneWidget);
+    expect(find.text(AppCopy.myDeleteAccount), findsOneWidget);
 
-    await tester.tap(find.text(AppCopy.myChangeGoal));
+    await tester.tap(find.text(AppCopy.myTermsOfService));
     await tester.pumpAndSettle();
-    await tester.tap(find.text(AppCopy.goalWalkTitle));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text(AppCopy.goalApply));
+    expect(find.text('제1조 (목적)'), findsOneWidget);
+    await tester.pageBack();
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text(AppCopy.navHome));
-    await tester.pumpAndSettle();
-    expect(find.text(GoalCopy.homeTitle(UserGoal.walk)), findsOneWidget);
-
-    await tester.tap(find.text(AppCopy.navMy));
-    await tester.pumpAndSettle();
     await tester.tap(find.text(AppCopy.myLogout));
     await tester.pumpAndSettle();
     expect(find.text(AppCopy.loginTitle), findsOneWidget);
@@ -300,26 +316,16 @@ void main() {
     );
   });
 
-  testWidgets('H01 species filter chips 전체|견|묘', (tester) async {
+  testWidgets('H01 shows dog profiles without species filter', (tester) async {
     final container = _loggedIn();
     addTearDown(container.dispose);
     await _pumpMain(tester, container);
 
-    expect(find.text(AppCopy.filterAll), findsOneWidget);
-    expect(find.text(AppCopy.speciesDog), findsOneWidget);
-    expect(find.text(AppCopy.speciesCat), findsOneWidget);
     expect(find.byKey(const ValueKey('home-card-kong')), findsOneWidget);
-
-    await tester.tap(find.text(AppCopy.speciesCat));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('home-card-bam')), findsOneWidget);
-    expect(find.byKey(const ValueKey('home-card-kong')), findsNothing);
-    expect(find.textContaining('밤이'), findsWidgets);
-
-    await tester.tap(find.text(AppCopy.speciesDog));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('home-card-kong')), findsOneWidget);
-    expect(find.byKey(const ValueKey('home-card-bam')), findsNothing);
+    expect(find.textContaining('콩이'), findsWidgets);
+    expect(find.text('전체'), findsNothing);
+    expect(find.text('견'), findsNothing);
+    expect(find.text('묘'), findsNothing);
   });
 
   testWidgets('inbound meetup CTAs track accept and counter KPIs', (tester) async {
@@ -385,7 +391,7 @@ void main() {
 
   test('H01 layout tokens match checklist', () {
     expect(AppColors.bg, const Color(0xFFFFFFFF));
-    expect(AppConstants.searchRadiusKm, 5);
+    expect(AppConstants.searchRadiusKm, 40);
     expect(AppIcons.spark, Icons.auto_awesome);
     expect(AppSizes.passFab, 56);
     expect(AppSizes.likeFab, 64);
@@ -397,12 +403,9 @@ void main() {
     expect(AppSizes.sparkRowHeight, 72);
     expect(AppSizes.sparkThumb, 48);
     expect(AppRadius.card, 20);
-    expect(GoalCopy.homeTitle(UserGoal.friend), '오늘의 반짝 친구');
-    expect(GoalCopy.homeTitle(UserGoal.walk), '같이 산책할 짝');
+    expect(AppCopy.homeTitle, '오늘의 반짝 친구');
     expect(SpeciesCopy.noun(PetSpecies.dog), AppCopy.petNounDog);
-    expect(SpeciesCopy.noun(PetSpecies.cat), AppCopy.petNounCat);
     expect(SpeciesCopy.noun(null), AppCopy.petNounFallback);
-    expect(MeetKpi.firstMessageTemplateUsed, 'first_message_template_used');
     expect(MeetKpi.proposalSent, 'meet_proposal_sent');
     expect(MeetKpi.proposalAccepted, 'meet_proposal_accepted');
     expect(MeetKpi.proposalCounter, 'meet_proposal_counter');
@@ -418,8 +421,13 @@ void main() {
     expect(IdentityContract.markUserVerifiedCallable, 'markUserVerified');
     expect(IdentityContract.functionsRegion, 'asia-northeast3');
     expect(IdentityContract.failedPrecondition, 'failed-precondition');
+    expect(AppCopy.verifyCta, '심사 요청하기');
+    expect(AppCopy.verifyGateCta, '인증하러 가기');
+    expect(AppCopy.verifyOwnerHint, '소유주 이름');
+    expect(AppCopy.verifyRegHint, '동물등록번호');
     expect(AppCopy.likeNeedsVerify, '인증 후 반짝할 수 있어요');
     expect(AppCopy.verifyGateTitle, '안전하게 반짝해요');
+    expect(AppCopy.verifyPendingTitle, '심사를 진행 중이에요');
     expect(AppCopy.verifyDone, '인증됐어요');
     expect(AppCopy.verifyGoSpark, '반짝하러 가기');
   });
@@ -472,21 +480,35 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('like-button')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text(AppCopy.verifyCta));
+    await tester.tap(find.text(AppCopy.verifyGateCta));
     await tester.pumpAndSettle();
     expect(find.text(AppCopy.verifyTitle), findsWidgets);
 
-    await tester.tap(find.byKey(const ValueKey('a02-confirm')));
+    await tester.enterText(find.byKey(const ValueKey('a02-owner')), '홍길동');
+    await tester.enterText(
+      find.byKey(const ValueKey('a02-reg')),
+      '410000000000000',
+    );
+    await tester.tap(find.byKey(const ValueKey('a02-submit')));
+    await tester.pumpAndSettle();
+    expect(container.read(isVerifiedProvider), isFalse);
+    expect(container.read(isPetRegPendingProvider), isTrue);
+    expect(find.text(AppCopy.verifyPendingTitle), findsWidgets);
+    expect(find.text(AppCopy.verifyPendingBody), findsOneWidget);
+
+    // Operator approval (Admin sets verifiedAt).
+    container.read(userDocProvider.notifier).ingestListenSnapshot(
+          verifiedAt: DateTime.utc(2026, 9, 16, 12),
+        );
     await tester.pumpAndSettle();
     expect(container.read(isVerifiedProvider), isTrue);
     expect(find.text(AppCopy.verifyDone), findsWidgets);
-    expect(find.text(AppCopy.verifySuccessBody), findsOneWidget);
     expect(find.byKey(const ValueKey('trust-badge')), findsOneWidget);
 
     await tester.tap(find.text(AppCopy.verifyGoSpark));
     await tester.pumpAndSettle();
     expect(find.text(AppCopy.likeNeedsVerify), findsNothing);
-    expect(find.text(GoalCopy.homeTitle(UserGoal.friend)), findsOneWidget);
+    expect(find.text(AppCopy.homeTitle), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('like-button')));
     await tester.pumpAndSettle();
@@ -510,18 +532,21 @@ void main() {
 
     expect(tester.element(like), same(likeEl));
     expect(find.text(AppCopy.likeNeedsVerify), findsNothing);
-    expect(find.text(GoalCopy.homeTitle(UserGoal.friend)), findsOneWidget);
+    expect(find.text(AppCopy.homeTitle), findsOneWidget);
   });
 
   testWidgets('verifiedAt stream restores D01 walk CTA in place', (tester) async {
-    final container = _loggedIn(goal: UserGoal.walk, verified: false);
+    final container = _loggedIn(verified: false);
     addTearDown(container.dispose);
     await _pumpMain(tester, container);
     await tester.tap(find.byKey(const ValueKey('home-card-kong')));
     await tester.pumpAndSettle();
 
     expect(find.text(AppCopy.likeNeedsVerify), findsWidgets);
-    expect(find.text(GoalCopy.detailCta(UserGoal.walk, '콩이')), findsNothing);
+    expect(
+      find.text(AppCopy.detailCta(AppCopy.fallbackPetName)),
+      findsNothing,
+    );
     final cta = find.byKey(const ValueKey('d01-cta'));
     final ctaEl = tester.element(cta);
 
@@ -531,7 +556,10 @@ void main() {
     await tester.pump();
 
     expect(tester.element(cta), same(ctaEl));
-    expect(find.text(GoalCopy.detailCta(UserGoal.walk, '콩이')), findsOneWidget);
+    expect(
+      find.text(AppCopy.detailCta(AppCopy.fallbackPetName)),
+      findsOneWidget,
+    );
     expect(find.text(AppCopy.likeNeedsVerify), findsNothing);
   });
 
@@ -543,22 +571,39 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('home-card-kong')));
     await tester.pumpAndSettle();
     expect(find.text(AppCopy.likeNeedsVerify), findsWidgets);
-    expect(find.text(GoalCopy.detailCta(UserGoal.friend, '콩이')), findsNothing);
+    expect(
+      find.text(AppCopy.detailCta(AppCopy.fallbackPetName)),
+      findsNothing,
+    );
     expect(find.byKey(const ValueKey('trust-badge')), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('d01-cta')));
     await tester.pumpAndSettle();
     expect(find.text(AppCopy.verifyGateTitle), findsOneWidget);
 
-    await tester.tap(find.text(AppCopy.verifyCta));
+    await tester.tap(find.text(AppCopy.verifyGateCta));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('a02-confirm')));
+    await tester.enterText(find.byKey(const ValueKey('a02-owner')), '홍길동');
+    await tester.enterText(
+      find.byKey(const ValueKey('a02-reg')),
+      '410000000000000',
+    );
+    await tester.tap(find.byKey(const ValueKey('a02-submit')));
+    await tester.pumpAndSettle();
+    expect(find.text(AppCopy.verifyPendingTitle), findsWidgets);
+
+    container.read(userDocProvider.notifier).ingestListenSnapshot(
+          verifiedAt: DateTime.utc(2026, 9, 16, 12),
+        );
     await tester.pumpAndSettle();
     expect(find.text(AppCopy.verifyDone), findsWidgets);
 
     await tester.tap(find.byIcon(Icons.arrow_back_ios_new_rounded));
     await tester.pumpAndSettle();
-    expect(find.text(GoalCopy.detailCta(UserGoal.friend, '콩이')), findsOneWidget);
+    expect(
+      find.text(AppCopy.detailCta(AppCopy.fallbackPetName)),
+      findsOneWidget,
+    );
     expect(find.text(AppCopy.likeNeedsVerify), findsNothing);
 
     await tester.tap(find.byKey(const ValueKey('d01-cta')));
@@ -578,5 +623,18 @@ void main() {
       preferredTimeSlots: {PreferredTimeSlot.weekendMorning},
     );
     expect(ready.p03Valid, isTrue);
+  });
+
+  test('P00 requires owner age, gender, and dog experience', () {
+    const draft = ProfileDraft();
+    expect(draft.p00Valid, isFalse);
+    expect(draft.currentStepValid, isFalse);
+    final ready = draft.copyWith(
+      ownerAgeBand: OwnerAgeBand.thirties,
+      ownerGender: OwnerGender.female,
+      dogExperience: DogExperience.oneToThree,
+    );
+    expect(ready.p00Valid, isTrue);
+    expect(ready.currentStepValid, isTrue);
   });
 }

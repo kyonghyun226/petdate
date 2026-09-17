@@ -66,6 +66,7 @@ class ChatThread {
     this.unread = false,
     this.participantIds = const {},
     this.unavailable = false,
+    this.opened = false,
   });
 
   final String id;
@@ -80,8 +81,19 @@ class ChatThread {
   /// Counterpart withdrew or their pet doc is gone. C01 hides these rooms.
   final bool unavailable;
 
+  /// True once the local user has opened C02 for this match.
+  final bool opened;
+
   int get outboundCount =>
       messages.where((m) => m.isMine && m.kind != ChatMessageKind.system).length;
+
+  bool get conversationStarted =>
+      opened ||
+      messages.any(
+        (m) =>
+            m.kind == ChatMessageKind.text ||
+            (m.kind == ChatMessageKind.meetup && m.isMine),
+      );
 
   DateTime get sortAt => updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
 
@@ -109,6 +121,7 @@ class ChatThread {
     bool? unread,
     Set<String>? participantIds,
     bool? unavailable,
+    bool? opened,
   }) {
     return ChatThread(
       id: id,
@@ -118,6 +131,7 @@ class ChatThread {
       unread: unread ?? this.unread,
       participantIds: participantIds ?? this.participantIds,
       unavailable: unavailable ?? this.unavailable,
+      opened: opened ?? this.opened,
     );
   }
 }

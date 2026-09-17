@@ -27,7 +27,7 @@ ProviderContainer _loggedIn() {
       signedInUser: const AuthUser(uid: _uid, providerId: 'google.com'),
     ),
   );
-  seedCompletedSession(container, goal: UserGoal.friend);
+  seedCompletedSession(container);
   container.read(userDocProvider.notifier).ingestListenSnapshot(
         verifiedAt: DateTime.utc(2026, 9, 8),
       );
@@ -159,7 +159,7 @@ void main() {
 
     await tester.tap(find.text(AppCopy.goHome));
     await tester.pumpAndSettle();
-    expect(find.text(GoalCopy.homeTitle(UserGoal.friend)), findsOneWidget);
+    expect(find.text(AppCopy.homeTitle), findsOneWidget);
   });
 
   testWidgets('unread row shows primary dot, time, and opens C02', (

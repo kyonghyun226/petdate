@@ -7,6 +7,9 @@ import 'package:petdate/screens/a02_verify/verify_gate_sheet.dart';
 import 'package:petdate/screens/c02_chat_room/c02_chat_room_screen.dart';
 import 'package:petdate/screens/d01_detail/d01_detail_screen.dart';
 import 'package:petdate/screens/m01_match/m01_match_screen.dart';
+import 'package:petdate/screens/main_shell/search_filter_screen.dart';
+import 'package:petdate/screens/p_profile_wizard/profile_wizard_screen.dart';
+import 'package:petdate/state/profile_provider.dart';
 import 'package:petdate/state/user_doc_provider.dart';
 
 Future<bool> openIdentityVerification(BuildContext context) async {
@@ -18,7 +21,7 @@ Future<bool> openIdentityVerification(BuildContext context) async {
   return result == true;
 }
 
-/// Unverified like / D01 CTA: sheet first, then A02 on 「인증하기」.
+/// Unverified like / D01 CTA: sheet first, then A02 on 「인증하러 가기」.
 Future<void> promptIdentityVerification(BuildContext context) async {
   final go = await showVerifyGateSheet(context);
   if (!go || !context.mounted) return;
@@ -27,11 +30,37 @@ Future<void> promptIdentityVerification(BuildContext context) async {
 
 Future<void> openProfileDetail(
   BuildContext context,
-  DiscoveryProfile profile,
-) {
+  DiscoveryProfile profile, {
+  bool allowMatch = true,
+  bool replyToReceived = false,
+  bool matchedChat = false,
+}) {
   return Navigator.of(context).push(
     MaterialPageRoute<void>(
-      builder: (_) => D01DetailScreen(profile: profile),
+      builder: (_) => D01DetailScreen(
+        profile: profile,
+        allowMatch: allowMatch,
+        replyToReceived: replyToReceived,
+        matchedChat: matchedChat,
+      ),
+    ),
+  );
+}
+
+Future<void> openSearchFilter(BuildContext context) {
+  return Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => const SearchFilterScreen(),
+    ),
+  );
+}
+
+/// 마이 → 내 반려견 카드: revise profile wizard steps, then pop.
+Future<void> openPetProfileEdit(BuildContext context, WidgetRef ref) {
+  ref.read(profileDraftProvider.notifier).goTo(0);
+  return Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => const ProfileWizardScreen(editing: true),
     ),
   );
 }

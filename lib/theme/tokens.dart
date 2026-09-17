@@ -47,6 +47,7 @@ abstract final class AppSizes {
   static const double socialIcon = 24;
   static const double passFab = 56;
   static const double likeFab = 64;
+  static const double filterFab = 52;
   static const double fabGap = 24;
   static const double cardInset = 32;
   static const double cardPhotoShare = 0.62;

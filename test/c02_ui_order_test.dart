@@ -13,8 +13,7 @@ import 'helpers/fake_auth_repository.dart';
 import 'helpers/test_app.dart';
 
 void main() {
-  testWidgets('C02 UI order: banner, insert-only chips, meetup, bubble',
-      (tester) async {
+  testWidgets('C02 UI order: banner, meetup chip, bubble', (tester) async {
     tester.view.physicalSize = const Size(400, 1600);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -26,7 +25,7 @@ void main() {
       ),
     );
     addTearDown(container.dispose);
-    seedCompletedSession(container, goal: UserGoal.friend);
+    seedCompletedSession(container);
     container.read(userDocProvider.notifier).ingestListenSnapshot(
           verifiedAt: DateTime.utc(2026, 9, 8),
         );
@@ -44,47 +43,16 @@ void main() {
     expect(AppColors.safetyBg, const Color(0xFFE8F7F3));
     expect(AppColors.safetyText, const Color(0xFF2F6F62));
 
-    // 2) 칩3 insert-only (발신 0일 때만)
-    final chips = GoalCopy.firstMessageChips(
-      UserGoal.friend,
-      AppCopy.fallbackPetName,
-    );
-    expect(chips, hasLength(3));
-    expect(find.byKey(const ValueKey('first-message-chips')), findsOneWidget);
-    expect(find.byKey(const ValueKey('first-message-chip-0')), findsOneWidget);
-    expect(find.byKey(const ValueKey('first-message-chip-1')), findsOneWidget);
-    expect(find.byKey(const ValueKey('first-message-chip-2')), findsOneWidget);
-    expect(container.read(chatProvider).threads.single.outboundCount, 0);
-
-    await tester.tap(find.byKey(const ValueKey('first-message-chip-0')));
-    await tester.pump();
-    expect(
-      tester
-          .widget<TextField>(find.byKey(const ValueKey('c02-input')))
-          .controller
-          ?.text,
-      chips.first,
-    );
-    expect(container.read(chatProvider).threads.single.outboundCount, 0);
-    expect(
-      container.read(chatProvider).threads.single.messages.where(
-            (m) => m.isMine && m.kind == ChatMessageKind.text,
-          ),
-      isEmpty,
-    );
-    expect(
-      container.read(analyticsProvider).events,
-      contains(MeetKpi.firstMessageTemplateUsed),
-    );
-    expect(find.byKey(const ValueKey('first-message-chips')), findsOneWidget);
+    // 2) 예시 첫인사 칩은 없음
+    expect(find.byKey(const ValueKey('first-message-chips')), findsNothing);
 
     // 3) 만남제안 진입
     await tester.tap(find.byKey(const ValueKey('meetup-propose-chip')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('c03-meetup-sheet')), findsOneWidget);
-    expect(find.text(AppCopy.meetupFriendTitle), findsOneWidget);
+    expect(find.text(AppCopy.meetupTitle), findsOneWidget);
 
-    // 4) 버블 채팅 — 보내면 카드 버블, 발신>0이면 첫인사 칩 사라짐
+    // 4) 버블 채팅 — 보내면 카드 버블
     await tester.tap(find.byKey(const ValueKey('meetup-send')));
     await tester.pumpAndSettle();
     expect(find.text(AppCopy.proposeMeetup), findsWidgets);
@@ -100,7 +68,6 @@ void main() {
       container.read(chatProvider).threads.single.outboundCount,
       greaterThan(0),
     );
-    expect(find.byKey(const ValueKey('first-message-chips')), findsNothing);
     expect(
       container.read(analyticsProvider).events,
       contains(MeetKpi.proposalSent),

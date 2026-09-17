@@ -3,37 +3,28 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:petdate/data/backend_mode.dart';
 import 'package:petdate/data/mock_profiles.dart';
 import 'package:petdate/data/social_providers.dart';
+import 'package:petdate/location/geo.dart';
+import 'package:petdate/location/location_providers.dart';
 import 'package:petdate/models/discovery_profile.dart';
-import 'package:petdate/state/profile_provider.dart';
+import 'package:petdate/state/search_filter_provider.dart';
 import 'package:petdate/state/session_provider.dart';
-
-enum SpeciesFilter { all, dog, cat }
 
 @immutable
 class FeedState {
   const FeedState({
+    this.catalog = const [],
     this.remaining = const [],
     this.passedIds = const {},
     this.actedIds = const {},
-    this.speciesFilter = SpeciesFilter.all,
   });
 
+  /// Full explore catalog (unfiltered by pass/like). Used by 멍스타.
+  final List<DiscoveryProfile> catalog;
   final List<DiscoveryProfile> remaining;
   final Set<String> passedIds;
   final Set<String> actedIds;
-  final SpeciesFilter speciesFilter;
 
-  List<DiscoveryProfile> get visible {
-    return [
-      for (final p in remaining)
-        if (speciesFilter == SpeciesFilter.all ||
-            (speciesFilter == SpeciesFilter.dog &&
-                p.species == PetSpecies.dog) ||
-            (speciesFilter == SpeciesFilter.cat &&
-                p.species == PetSpecies.cat))
-          p,
-    ];
-  }
+  List<DiscoveryProfile> get visible => remaining;
 
   DiscoveryProfile? get current {
     final list = visible;
@@ -41,37 +32,47 @@ class FeedState {
   }
 
   FeedState copyWith({
+    List<DiscoveryProfile>? catalog,
     List<DiscoveryProfile>? remaining,
     Set<String>? passedIds,
     Set<String>? actedIds,
-    SpeciesFilter? speciesFilter,
   }) {
     return FeedState(
+      catalog: catalog ?? this.catalog,
       remaining: remaining ?? this.remaining,
       passedIds: passedIds ?? this.passedIds,
       actedIds: actedIds ?? this.actedIds,
-      speciesFilter: speciesFilter ?? this.speciesFilter,
     );
   }
 }
 
 class FeedNotifier extends Notifier<FeedState> {
-  List<DiscoveryProfile> _catalog = const [];
+  List<DiscoveryProfile> _rawCatalog = const [];
   Set<String> _blocked = {};
 
   @override
   FeedState build() {
     ref.watch(sessionLoggedInTickProvider);
+    ref.listen(searchFilterProvider, (_, _) => _applyCatalog());
+    ref.listen(myLocationProvider, (_, _) => _applyCatalog());
     final useMock = ref.watch(useMockDataProvider);
     if (useMock) {
-      _catalog = MockCatalog.withinRadius();
+      _rawCatalog = List<DiscoveryProfile>.of(MockCatalog.profiles);
       _blocked = {};
-      return FeedState(remaining: _catalog);
+      final filter = ref.read(searchFilterProvider);
+      final catalog = _withDistances(_rawCatalog);
+      return FeedState(
+        catalog: catalog,
+        remaining: [
+          for (final p in catalog)
+            if (filter.matches(p)) p,
+        ],
+      );
     }
 
     final uid = ref.watch(sessionProvider.select((s) => s.uid));
     if (uid == null) {
-      _catalog = const [];
+      _rawCatalog = const [];
       _blocked = {};
       return const FeedState();
     }
@@ -80,7 +81,7 @@ class FeedNotifier extends Notifier<FeedState> {
         .read(socialRepositoryProvider)
         .watchExplore(myUid: uid, blockedIds: const {})
         .listen((pets) {
-      _catalog = pets;
+      _rawCatalog = pets;
       _applyCatalog();
     });
     final blockSub = ref
@@ -97,33 +98,73 @@ class FeedNotifier extends Notifier<FeedState> {
     return const FeedState();
   }
 
+  List<DiscoveryProfile> _withDistances(List<DiscoveryProfile> pets) {
+    // Review-demo / MockCatalog already has baked-in distances — never
+    // overwrite with GPS (demo pets have no latlng → would become unknown
+    // and vanish from the radius filter).
+    if (ref.read(useMockDataProvider)) return pets;
+
+    final origin = ref.read(myLocationProvider);
+    if (origin == null) return pets;
+    return [
+      for (final p in pets) _distanceFrom(origin, p),
+    ];
+  }
+
+  DiscoveryProfile _distanceFrom(ApproxLatLng origin, DiscoveryProfile p) {
+    if (!p.hasGeo) {
+      return p.copyWith(distanceKm: DiscoveryProfile.unknownDistanceKm);
+    }
+    final km = Geo.distanceKm(
+      origin,
+      ApproxLatLng(p.latitude!, p.longitude!),
+    );
+    return p.copyWith(distanceKm: km);
+  }
+
   void _applyCatalog() {
+    final filter = ref.read(searchFilterProvider);
+    final useMock = ref.read(useMockDataProvider);
+    final origin = ref.read(myLocationProvider);
+    // Mock distances are baked in; live needs GPS origin to enforce radius.
+    final applyRadius = useMock || origin != null;
+    final catalog = _withDistances(_rawCatalog);
     final liked = state.actedIds.difference(state.passedIds);
-    final catalogById = {for (final p in _catalog) p.id: p};
+    final catalogById = {for (final p in catalog) p.id: p};
     final ordered = <DiscoveryProfile>[];
     final seen = <String>{};
     for (final p in state.remaining) {
       final fresh = catalogById[p.id];
-      if (fresh == null || liked.contains(p.id) || _blocked.contains(p.id)) {
+      if (fresh == null ||
+          liked.contains(p.id) ||
+          _blocked.contains(p.id) ||
+          !filter.matches(fresh, applyRadius: applyRadius)) {
         continue;
       }
       ordered.add(fresh);
       seen.add(p.id);
     }
-    for (final p in _catalog) {
+    for (final p in catalog) {
       if (seen.contains(p.id) ||
           liked.contains(p.id) ||
-          _blocked.contains(p.id)) {
+          _blocked.contains(p.id) ||
+          !filter.matches(p, applyRadius: applyRadius)) {
         continue;
       }
       if (state.passedIds.contains(p.id)) continue;
       ordered.add(p);
     }
-    state = state.copyWith(remaining: ordered);
-  }
-
-  void setSpeciesFilter(SpeciesFilter filter) {
-    state = state.copyWith(speciesFilter: filter);
+    // Near → far when distances are known.
+    if (applyRadius) {
+      ordered.sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
+    }
+    state = state.copyWith(
+      catalog: [
+        for (final p in catalog)
+          if (!_blocked.contains(p.id)) p,
+      ],
+      remaining: ordered,
+    );
   }
 
   void pass() {
@@ -150,11 +191,15 @@ class FeedNotifier extends Notifier<FeedState> {
 
   /// Restores passed (not liked/matched) profiles into the stack.
   void refresh() {
+    final filter = ref.read(searchFilterProvider);
+    final useMock = ref.read(useMockDataProvider);
+    final applyRadius = useMock || ref.read(myLocationProvider) != null;
     final remainingIds = {for (final p in state.remaining) p.id};
     final next = [
       ...state.remaining,
-      for (final p in _catalog)
+      for (final p in state.catalog)
         if (!remainingIds.contains(p.id) &&
+            filter.matches(p, applyRadius: applyRadius) &&
             (state.passedIds.contains(p.id) || !state.actedIds.contains(p.id)))
           p,
     ];

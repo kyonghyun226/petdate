@@ -1,3 +1,4 @@
+import 'package:petdate/location/geo.dart';
 import 'package:petdate/models/chat.dart';
 import 'package:petdate/models/discovery_profile.dart';
 import 'package:petdate/models/spark.dart';
@@ -41,6 +42,12 @@ abstract class SocialRepository {
   Future<void> upsertPet({
     required String uid,
     required ProfileDraft draft,
+  });
+
+  /// Writes approximate latlng + geohash onto pets/{uid}.
+  Future<void> updatePetLocation({
+    required String uid,
+    required ApproxLatLng point,
   });
 
   Future<ProfileDraft?> readPet(String uid);

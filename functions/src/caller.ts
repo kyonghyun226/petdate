@@ -23,3 +23,17 @@ export function callerUid(
   }
   return authUid;
 }
+
+/**
+ * A02 requires Firebase Phone Auth linked to the caller.
+ * ID tokens expose `phone_number` after SMS verification + link.
+ */
+export function requirePhoneNumber(phoneNumber: unknown): string {
+  if (typeof phoneNumber !== "string" || phoneNumber.trim() === "") {
+    throw new HttpsError(
+      "failed-precondition",
+      "Phone verification required before markUserVerified.",
+    );
+  }
+  return phoneNumber;
+}

@@ -1,5 +1,14 @@
-# Launch Screen Assets
+# LaunchImage
 
-You can customize the launch screen with your own desired assets by replacing the image files in this directory.
+Cold-start splash asset for `LaunchScreen.storyboard`.
 
-You can also do it by opening your Flutter project's Xcode project with `open ios/Runner.xcworkspace`, selecting `Runner/Assets.xcassets` in the Project Navigator and dropping in the desired images.
+Source: `assets/branding/app_icon.png` at 96pt (1x / 2x / 3x).
+Regenerate with:
+
+```bash
+SRC=assets/branding/app_icon.png
+OUT=ios/Runner/Assets.xcassets/LaunchImage.imageset
+sips -z 96 96 "$SRC" --out "$OUT/LaunchImage.png"
+sips -z 192 192 "$SRC" --out "$OUT/LaunchImage@2x.png"
+sips -z 288 288 "$SRC" --out "$OUT/LaunchImage@3x.png"
+```

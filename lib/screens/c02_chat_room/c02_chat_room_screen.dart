@@ -9,7 +9,6 @@ import 'package:petdate/screens/r01_report/r01_report_sheet.dart';
 import 'package:petdate/state/analytics_provider.dart';
 import 'package:petdate/state/chat_provider.dart';
 import 'package:petdate/state/feed_provider.dart';
-import 'package:petdate/state/profile_provider.dart';
 import 'package:petdate/state/session_provider.dart';
 import 'package:petdate/state/spark_provider.dart';
 import 'package:petdate/theme/tokens.dart';
@@ -36,7 +35,9 @@ class _C02ChatRoomScreenState extends ConsumerState<C02ChatRoomScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      ref.read(chatProvider.notifier).markRead(widget.threadId);
+      final chat = ref.read(chatProvider.notifier);
+      chat.markOpened(widget.threadId);
+      chat.markRead(widget.threadId);
     });
   }
 
@@ -45,15 +46,6 @@ class _C02ChatRoomScreenState extends ConsumerState<C02ChatRoomScreen> {
     _input.dispose();
     _scroll.dispose();
     super.dispose();
-  }
-
-  void _insertTemplate(String text) {
-    _input.text = text;
-    _input.selection = TextSelection.collapsed(offset: _input.text.length);
-    ref
-        .read(analyticsProvider.notifier)
-        .track(MeetKpi.firstMessageTemplateUsed);
-    setState(() {});
   }
 
   Future<void> _onMenu(String value, ChatThread thread) async {
@@ -93,12 +85,6 @@ class _C02ChatRoomScreenState extends ConsumerState<C02ChatRoomScreen> {
       );
     }
 
-    final goal =
-        ref.watch(sessionProvider.select((s) => s.goal)) ?? UserGoal.friend;
-    final myPet = ref.watch(profileDraftProvider).displayName;
-    final showChips = thread.outboundCount == 0;
-    final chips = GoalCopy.firstMessageChips(goal, myPet);
-
     return Scaffold(
       appBar: AppBar(
         title: Row(
@@ -107,7 +93,8 @@ class _C02ChatRoomScreenState extends ConsumerState<C02ChatRoomScreen> {
               width: 32,
               height: 32,
               child: PetPhoto(
-                seed: thread.profile.photoSeeds.first,
+                seed: thread.profile.mainPhotoSeed,
+                assetPath: thread.profile.mainPhotoAsset,
                 circle: true,
                 iconSize: 16,
               ),
@@ -170,27 +157,6 @@ class _C02ChatRoomScreenState extends ConsumerState<C02ChatRoomScreen> {
               ),
             ),
           ),
-          if (showChips)
-            SizedBox(
-              height: AppSizes.templateChipHeight,
-              child: SingleChildScrollView(
-                key: const ValueKey('first-message-chips'),
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-                child: Row(
-                  children: [
-                    for (var i = 0; i < chips.length; i++) ...[
-                      if (i > 0) const SizedBox(width: AppSpacing.sm),
-                      TemplateChip(
-                        key: ValueKey('first-message-chip-$i'),
-                        label: chips[i],
-                        onTap: () => _insertTemplate(chips[i]),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
           Padding(
             padding: const EdgeInsets.fromLTRB(
               AppSpacing.lg,

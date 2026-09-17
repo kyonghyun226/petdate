@@ -4,6 +4,7 @@ import 'package:petdate/copy/app_copy.dart';
 import 'package:petdate/data/mock_profiles.dart';
 import 'package:petdate/data/social_repository.dart';
 import 'package:petdate/firebase/firestore_ids.dart';
+import 'package:petdate/location/geo.dart';
 import 'package:petdate/models/chat.dart';
 import 'package:petdate/models/discovery_profile.dart';
 import 'package:petdate/models/like_match.dart';
@@ -25,6 +26,7 @@ class MockSocialRepository implements SocialRepository {
   final Set<String> _blocked = {};
   final List<Map<String, String>> reports = [];
   final Map<String, ProfileDraft> _pets = {};
+  final Map<String, ApproxLatLng> _petLocations = {};
 
   int _msgSeq = 0;
 
@@ -331,6 +333,14 @@ class MockSocialRepository implements SocialRepository {
     required ProfileDraft draft,
   }) async {
     _pets[uid] = draft;
+  }
+
+  @override
+  Future<void> updatePetLocation({
+    required String uid,
+    required ApproxLatLng point,
+  }) async {
+    _petLocations[uid] = point;
   }
 
   @override

@@ -4,8 +4,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:petdate/auth/auth_repository.dart';
 import 'package:petdate/copy/app_copy.dart';
 import 'package:petdate/data/mock_profiles.dart';
+import 'package:petdate/models/chat.dart';
 import 'package:petdate/models/spark.dart';
 import 'package:petdate/screens/main_shell/b01_spark_screen.dart';
+import 'package:petdate/state/chat_provider.dart';
 import 'package:petdate/state/spark_provider.dart';
 import 'package:petdate/state/user_doc_provider.dart';
 import 'package:petdate/theme/tokens.dart';
@@ -20,7 +22,7 @@ ProviderContainer _loggedIn({bool verified = true}) {
       signedInUser: const AuthUser(uid: 'mock_uid', providerId: 'google.com'),
     ),
   );
-  seedCompletedSession(container, goal: UserGoal.friend);
+  seedCompletedSession(container);
   if (verified) {
     container
         .read(userDocProvider.notifier)
@@ -56,6 +58,8 @@ void main() {
     expect(AppCopy.sparkSent, '보낸');
     expect(AppCopy.sparkMatched, '매칭됨');
     expect(AppCopy.sparkReply, '반짝 화답');
+    expect(AppCopy.sparkReplyCta('콩이'), '우리 콩이와 친구될래?');
+    expect(AppCopy.detailCta('초코'), '우리 초코와 친구하자!');
     expect(AppCopy.sparkEmpty, '아직 받은 반짝이 없어요');
     expect(AppCopy.sparkSentEmpty, '아직 보낸 반짝이 없어요');
     expect(AppCopy.sparkMatchedEmpty, '아직 반짝한 친구가 없어요');
@@ -63,7 +67,7 @@ void main() {
 
   test('spark caption is distance · relative time', () {
     final now = DateTime.utc(2026, 9, 8, 12);
-    expect(formatSparkDistance(0.8), '0.8km');
+    expect(formatSparkDistance(0.8), '800m');
     expect(
       formatSparkRelativeTime(
         now.subtract(const Duration(minutes: 8)),
@@ -86,7 +90,7 @@ void main() {
         bucket: SparkBucket.received,
         createdAt: now.subtract(const Duration(minutes: 8)),
       ).metaCaption(now: now),
-      '0.8km · 8분 전',
+      '800m · 8분 전',
     );
   });
 
@@ -154,7 +158,7 @@ void main() {
     expect(find.byKey(const ValueKey('spark-row-nuri')), findsNothing);
     expect(find.text('누리'), findsNothing);
     expect(find.text(AppCopy.sparkReply), findsNWidgets(2));
-    expect(find.textContaining('0.8km'), findsWidgets);
+    expect(find.textContaining('800m'), findsWidgets);
     expect(find.textContaining('분 전'), findsWidgets);
 
     final reply = find.byKey(const ValueKey('spark-reply-kong'));
@@ -236,7 +240,42 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text(GoalCopy.homeTitle(UserGoal.friend)), findsOneWidget);
+    expect(find.text(AppCopy.homeTitle), findsOneWidget);
+  });
+
+  testWidgets('received row opens D01 with their-pet reply CTA', (tester) async {
+    final container = _loggedIn();
+    addTearDown(container.dispose);
+    await _pumpMain(tester, container);
+    await _openSpark(tester);
+
+    await tester.tap(find.byKey(const ValueKey('spark-row-kong')));
+    await tester.pumpAndSettle();
+
+    expect(find.text(AppCopy.sparkReplyCta('콩이')), findsOneWidget);
+    expect(
+      find.text(AppCopy.detailCta(AppCopy.fallbackPetName)),
+      findsNothing,
+    );
+  });
+
+  testWidgets('sent row opens D01 without match CTA', (tester) async {
+    final container = _loggedIn();
+    addTearDown(container.dispose);
+    await _pumpMain(tester, container);
+    await _openSpark(tester);
+
+    await tester.tap(find.text(AppCopy.sparkSent));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('spark-row-bori')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('d01-cta')), findsNothing);
+    expect(find.text(AppCopy.sparkReplyCta('보리')), findsNothing);
+    expect(
+      find.text(AppCopy.detailCta(AppCopy.fallbackPetName)),
+      findsNothing,
+    );
   });
 
   testWidgets('unverified 화답 opens A02 gate sheet', (tester) async {
@@ -248,7 +287,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('spark-reply-kong')));
     await tester.pumpAndSettle();
     expect(find.text(AppCopy.verifyGateTitle), findsOneWidget);
-    expect(find.text(AppCopy.verifyCta), findsOneWidget);
+    expect(find.text(AppCopy.verifyGateCta), findsOneWidget);
 
     await tester.tap(find.text(AppCopy.later));
     await tester.pumpAndSettle();
@@ -289,7 +328,9 @@ void main() {
     expect((matched.decoration as BoxDecoration).color, AppColors.primarySoft);
   });
 
-  testWidgets('매칭됨 row opens C02', (tester) async {
+  testWidgets('매칭됨 row opens D01; start chat only when not started', (
+    tester,
+  ) async {
     final container = _loggedIn();
     addTearDown(container.dispose);
     await _pumpMain(tester, container);
@@ -297,9 +338,53 @@ void main() {
     await tester.tap(find.text(AppCopy.sparkMatched));
     await tester.pumpAndSettle();
 
+    // No prior chat activity in test mode → profile + start CTA
     await tester.tap(find.byKey(const ValueKey('spark-row-dal')));
     await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('d01-cta')), findsNothing);
+    expect(find.text(AppCopy.chatSystemMatch), findsNothing);
+    expect(find.text(AppCopy.startConversation), findsOneWidget);
+    expect(find.byKey(const ValueKey('d01-start-chat')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('d01-start-chat')));
+    await tester.pumpAndSettle();
     expect(find.text(AppCopy.chatSystemMatch), findsOneWidget);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    // After opening C02 once, CTA is gone
+    expect(find.byKey(const ValueKey('d01-start-chat')), findsNothing);
+    expect(find.text(AppCopy.startConversation), findsNothing);
+  });
+
+  testWidgets('매칭됨 with text history hides start chat CTA', (tester) async {
+    final container = _loggedIn();
+    addTearDown(container.dispose);
+    final dal = MockCatalog.byId('dal')!;
+    container.read(chatProvider.notifier).replaceForTest(
+      threads: [
+        ChatThread(
+          id: 'match_dal',
+          profile: dal,
+          messages: const [
+            ChatMessage(
+              id: 't1',
+              text: '주말 아침 산책 가능해요',
+              isMine: false,
+            ),
+          ],
+        ),
+      ],
+    );
+    await _pumpMain(tester, container);
+    await _openSpark(tester);
+    await tester.tap(find.text(AppCopy.sparkMatched));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('spark-row-dal')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('d01-start-chat')), findsNothing);
+    expect(find.byKey(const ValueKey('d01-cta')), findsNothing);
   });
 
   testWidgets('R01 block removes the row from every B01 segment', (

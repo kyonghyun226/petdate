@@ -24,9 +24,15 @@ abstract final class AppTheme {
       onSurfaceVariant: AppColors.textMuted,
       outline: AppColors.border,
       outlineVariant: AppColors.border,
+      // Kill seed-tinted apricot surfaces (dialogs, sheets, elevation).
+      surfaceTint: const Color(0x00000000),
+      surfaceBright: AppColors.surface,
+      surfaceDim: AppColors.surface,
       surfaceContainerLowest: AppColors.surface,
-      surfaceContainerLow: AppColors.surfaceMuted,
-      surfaceContainerHighest: AppColors.surfaceMuted,
+      surfaceContainerLow: AppColors.surface,
+      surfaceContainer: AppColors.surface,
+      surfaceContainerHigh: AppColors.surface,
+      surfaceContainerHighest: AppColors.surface,
     );
 
     final textTheme = TextTheme(
@@ -110,8 +116,13 @@ abstract final class AppTheme {
           vertical: AppSpacing.sm,
         ),
       ),
+      dialogTheme: const DialogThemeData(
+        backgroundColor: AppColors.surface,
+        surfaceTintColor: Color(0x00000000),
+      ),
       bottomSheetTheme: const BottomSheetThemeData(
         backgroundColor: AppColors.surface,
+        surfaceTintColor: Color(0x00000000),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(
             top: Radius.circular(AppRadius.sheetTop),

@@ -63,23 +63,6 @@ class _P01BasicInfoStepState extends ConsumerState<P01BasicInfoStep> {
           onChanged: notifier.setPetName,
         ),
         const SizedBox(height: AppSpacing.lg),
-        _Label(AppCopy.speciesLabel),
-        Wrap(
-          spacing: AppSpacing.sm,
-          children: [
-            SelectableChip(
-              label: AppCopy.speciesDog,
-              selected: draft.species == PetSpecies.dog,
-              onTap: () => notifier.setSpecies(PetSpecies.dog),
-            ),
-            SelectableChip(
-              label: AppCopy.speciesCat,
-              selected: draft.species == PetSpecies.cat,
-              onTap: () => notifier.setSpecies(PetSpecies.cat),
-            ),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.lg),
         _Label(AppCopy.breedLabel),
         TextField(
           controller: _breed,

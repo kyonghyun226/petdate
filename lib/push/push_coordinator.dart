@@ -99,6 +99,41 @@ class PushCoordinator {
     await messaging.openAppNotificationSettings();
   }
 
+  /// OS notification permission currently authorized.
+  Future<bool> isEnabled() async {
+    try {
+      return await messaging.isAuthorized();
+    } on Object {
+      return false;
+    }
+  }
+
+  /// Settings toggle ON: request OS permission and sync token.
+  Future<bool> enableFromSettings() async {
+    await store.markAsked();
+    final granted = await messaging.requestPermission();
+    if (granted) {
+      await store.markGranted();
+      await syncTokenIfAllowed();
+      return true;
+    }
+    await store.markOsDenied();
+    await openOsNotificationSettings();
+    return false;
+  }
+
+  /// Settings toggle OFF: drop token and open OS settings to revoke.
+  Future<void> disableFromSettings() async {
+    final token = _lastToken;
+    _lastToken = null;
+    if (token != null) {
+      await tokenStore.clear(token: token);
+    }
+    await tokenStore.clearAllForCurrentUser();
+    await store.markDeclinedPreprompt();
+    await openOsNotificationSettings();
+  }
+
   Future<void> onSignedOut() async {
     final token = _lastToken;
     _lastToken = null;

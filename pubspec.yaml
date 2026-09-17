@@ -1,5 +1,5 @@
 name: petdate
-description: "반짝산책 — 반려 친구 · 산책 메이트 찾기. 우리 반려의 짝을 찾아요. 친구 사귀기부터 같이 산책하기까지."
+description: "반짝산책 — 반려견 친구 · 산책 메이트 찾기. 우리 반려견의 짝을 찾아요. 친구 사귀기부터 같이 산책하기까지."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+1
+version: 1.0.1+2
 
 environment:
   sdk: ^3.13.2
@@ -44,6 +44,11 @@ dependencies:
   shared_preferences: ^2.5.3
   app_settings: ^7.0.0
   crypto: ^3.0.6
+  image_picker: ^1.2.3
+  sign_in_with_apple: ^8.2.0
+  firebase_storage: 13.5.0
+  path_provider: ^2.1.6
+  geolocator: ^14.0.3
 
 dev_dependencies:
   flutter_test:
@@ -84,6 +89,15 @@ flutter:
   assets:
     - assets/branding/app_icon.png
     - assets/branding/wordmark_v3.png
+    - assets/nose.png
+    - assets/nose_filled.png
+    - assets/google_logo.png
+    - assets/apple_logo.png
+    - assets/dog1.jpg
+    - assets/dog2.jpg
+    - assets/dog3.png
+    - assets/dog4.png
+    - assets/dog5.png
 
   fonts:
     - family: Pretendard

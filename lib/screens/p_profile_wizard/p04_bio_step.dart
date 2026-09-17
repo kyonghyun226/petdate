@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:petdate/copy/app_copy.dart';
 import 'package:petdate/state/profile_provider.dart';
-import 'package:petdate/state/session_provider.dart';
 import 'package:petdate/theme/tokens.dart';
 
 class P04BioStep extends ConsumerStatefulWidget {
@@ -30,8 +29,6 @@ class _P04BioStepState extends ConsumerState<P04BioStep> {
   @override
   Widget build(BuildContext context) {
     final draft = ref.watch(profileDraftProvider);
-    final goal = ref.watch(sessionProvider.select((s) => s.goal)) ??
-        UserGoal.friend;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(
@@ -51,7 +48,7 @@ class _P04BioStepState extends ConsumerState<P04BioStep> {
           maxLength: AppCopy.bioMax,
           onChanged: ref.read(profileDraftProvider.notifier).setBio,
           decoration: InputDecoration(
-            hintText: GoalCopy.bioPlaceholder(goal),
+            hintText: AppCopy.bioPlaceholder,
             counterText: '${draft.bio.length}/${AppCopy.bioMax}',
             alignLabelWithHint: true,
           ),

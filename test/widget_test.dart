@@ -29,8 +29,7 @@ void main() {
       findsOneWidget,
     );
 
-    await tester.pump(const Duration(milliseconds: 1600));
-    await tester.pumpAndSettle();
+    await pumpPastSplash(tester);
 
     expect(find.text(AppCopy.onboardingPages[0].title), findsOneWidget);
     expect(find.text(AppCopy.onboardingPages[0].body), findsOneWidget);
@@ -38,10 +37,9 @@ void main() {
     expect(find.text(AppCopy.next), findsOneWidget);
   });
 
-  testWidgets('onboarding to login to goal to wizard to home', (tester) async {
+  testWidgets('onboarding to login to wizard to home', (tester) async {
     await tester.pumpWidget(testApp());
-    await tester.pump(const Duration(milliseconds: 1600));
-    await tester.pumpAndSettle();
+    await pumpPastSplash(tester);
 
     await tester.tap(find.text(AppCopy.next));
     await tester.pumpAndSettle();
@@ -74,20 +72,12 @@ void main() {
 
     await tester.tap(find.text(AppCopy.loginGoogle));
     await tester.pumpAndSettle();
-    expect(find.text(AppCopy.goalQuestion), findsOneWidget);
-    expect(find.text(AppCopy.next), findsOneWidget);
-
-    await tester.tap(find.text(AppCopy.goalFriendTitle));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text(AppCopy.next));
-    await tester.pumpAndSettle();
-    expect(find.text(AppCopy.p01Title), findsOneWidget);
+    expect(find.text(AppCopy.p00Title), findsOneWidget);
   });
 
   testWidgets('already have account skips to login', (tester) async {
     await tester.pumpWidget(testApp());
-    await tester.pump(const Duration(milliseconds: 1600));
-    await tester.pumpAndSettle();
+    await pumpPastSplash(tester);
 
     await tester.tap(find.text(AppCopy.alreadyHaveAccount));
     await tester.pumpAndSettle();
@@ -111,14 +101,20 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     await tester.pumpWidget(testApp());
-    await tester.pump(const Duration(milliseconds: 1600));
-    await tester.pumpAndSettle();
+    await pumpPastSplash(tester);
     await tester.tap(find.text(AppCopy.alreadyHaveAccount));
     await tester.pumpAndSettle();
     await tester.tap(find.text(AppCopy.loginApple));
     await tester.pumpAndSettle();
-    await tester.tap(find.text(AppCopy.goalWalkTitle));
-    await tester.pumpAndSettle();
+
+    expect(find.text(AppCopy.p00Title), findsOneWidget);
+    expect(tester.widget<FilledButton>(find.widgetWithText(FilledButton, AppCopy.next)).onPressed, isNull);
+
+    await tester.tap(find.text(AppCopy.ownerAgeThirties));
+    await tester.tap(find.text(AppCopy.ownerGenderFemale));
+    await tester.tap(find.text(AppCopy.dogExperienceOneToThree));
+    await tester.pump();
+    expect(tester.widget<FilledButton>(find.widgetWithText(FilledButton, AppCopy.next)).onPressed, isNotNull);
     await tester.tap(find.text(AppCopy.next));
     await tester.pumpAndSettle();
 
@@ -126,7 +122,6 @@ void main() {
     expect(tester.widget<FilledButton>(find.widgetWithText(FilledButton, AppCopy.next)).onPressed, isNull);
 
     await tester.enterText(find.byType(TextField).at(0), '초코');
-    await tester.tap(find.text(AppCopy.speciesDog));
     await tester.enterText(find.byType(TextField).at(1), '말티즈');
     await tester.enterText(find.byType(TextField).at(2), '3');
     await tester.tap(find.text(AppCopy.genderMale));
@@ -152,25 +147,25 @@ void main() {
     await tester.tap(find.text(AppCopy.next));
     await tester.pumpAndSettle();
     expect(find.text(AppCopy.p04Title), findsOneWidget);
-    expect(find.text(GoalCopy.bioPlaceholder(UserGoal.walk)), findsOneWidget);
+    expect(find.text(AppCopy.bioPlaceholder), findsOneWidget);
 
     await tester.tap(find.text(AppCopy.startSpark));
     await tester.pumpAndSettle();
-    expect(find.text(GoalCopy.homeTitle(UserGoal.walk)), findsOneWidget);
+    expect(find.text(AppCopy.homeTitle), findsOneWidget);
     expect(find.text(AppCopy.navHome), findsOneWidget);
-    expect(find.text(AppCopy.navMy), findsOneWidget);
+    expect(find.text(AppCopy.navMeongstar), findsOneWidget);
   });
 
   testWidgets('main shell bottom nav after mocked completed session',
       (tester) async {
     final container = testContainer();
     addTearDown(container.dispose);
-    seedCompletedSession(container, goal: UserGoal.walk);
+    seedCompletedSession(container);
 
     await tester.pumpWidget(testApp(container: container));
     await tester.pumpAndSettle();
 
-    expect(find.text(GoalCopy.homeTitle(UserGoal.walk)), findsOneWidget);
+    expect(find.text(AppCopy.homeTitle), findsOneWidget);
     expect(find.textContaining('콩이'), findsWidgets);
     expect(find.text(AppCopy.navHome), findsOneWidget);
     expect(find.text(AppCopy.navSpark), findsOneWidget);
@@ -189,14 +184,14 @@ void main() {
       '우리 반려의 짝을 찾아요. 친구 사귀기부터 같이 산책하기까지.',
     );
     expect(AppCopy.onboardingPages, hasLength(3));
-    expect(AppCopy.onboardingPages[1].title, '친구 사귀기 · 같이 산책하기');
+    expect(AppCopy.onboardingPages[1].title, '라이프스타일이 맞는 견주');
     expect(AppCopy.onboardingPages[1].body,
-      '원하는 목적만 고르면, 라이프스타일이 맞는 견주·묘주를 추천해 드려요.',
+      '태그·시간대를 알려 주시면, 잘 맞는 반려 친구를 추천해 드려요.',
     );
     expect(AppCopy.petTags, hasLength(12));
     expect(AppCopy.petTags.last.key, 'travel_mate');
     expect(AppCopy.petTags.last.label, '여행 메이트');
-    expect(AppConstants.searchRadiusKm, 5);
+    expect(AppConstants.searchRadiusKm, 40);
     expect(AppColors.safetyBg, const Color(0xFFE8F7F3));
     expect(AppColors.safetyText, const Color(0xFF2F6F62));
     expect(BrandAssets.appIcon, 'assets/branding/app_icon.png');

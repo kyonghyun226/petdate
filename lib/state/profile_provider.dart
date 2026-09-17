@@ -1,11 +1,14 @@
+import 'dart:typed_data';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:petdate/constants/app_constants.dart';
 import 'package:petdate/copy/app_copy.dart';
+import 'package:petdate/media/gallery_photo_picker.dart';
 import 'package:petdate/models/preferred_time.dart';
 import 'package:petdate/state/session_provider.dart';
 
-enum PetSpecies { dog, cat }
+enum PetSpecies { dog }
 
 enum PetGender { male, female }
 
@@ -13,23 +16,85 @@ enum PetSize { small, medium, large }
 
 enum AgeInputMode { age, birth }
 
+/// Owner age band stored on `users/{uid}.ownerAgeBand`.
+enum OwnerAgeBand { twenties, thirties, forties, fiftiesPlus }
+
+/// Owner gender stored on `users/{uid}.ownerGender`.
+enum OwnerGender { male, female }
+
+/// How long the owner has raised dogs — `users/{uid}.dogExperience`.
+enum DogExperience {
+  firstTime,
+  underOneYear,
+  oneToThree,
+  threeToFive,
+  overFive,
+}
+
 @immutable
 class MockPhoto {
   const MockPhoto({
     required this.id,
     required this.seed,
+    this.localPath,
+    this.bytes,
+    this.storagePath,
+    this.remoteUrl,
   });
 
   final String id;
   final int seed;
+
+  /// Local gallery file path (or web blob URL). Optional metadata for upload.
+  final String? localPath;
+
+  /// Decoded image bytes for in-app preview / upload.
+  final Uint8List? bytes;
+
+  /// Firebase Storage object path, e.g. `pets/{uid}/photo_0.jpg`.
+  final String? storagePath;
+
+  /// HTTPS download URL for cold-start display.
+  final String? remoteUrl;
+
+  bool get hasLocalImage => bytes != null && bytes!.isNotEmpty;
+
+  bool get hasRemoteImage => remoteUrl != null && remoteUrl!.isNotEmpty;
+
+  bool get hasDisplayImage => hasLocalImage || hasRemoteImage;
+
+  MockPhoto copyWith({
+    String? id,
+    int? seed,
+    String? localPath,
+    Uint8List? bytes,
+    String? storagePath,
+    String? remoteUrl,
+    bool clearLocalPath = false,
+    bool clearBytes = false,
+    bool clearStoragePath = false,
+    bool clearRemoteUrl = false,
+  }) {
+    return MockPhoto(
+      id: id ?? this.id,
+      seed: seed ?? this.seed,
+      localPath: clearLocalPath ? null : (localPath ?? this.localPath),
+      bytes: clearBytes ? null : (bytes ?? this.bytes),
+      storagePath: clearStoragePath ? null : (storagePath ?? this.storagePath),
+      remoteUrl: clearRemoteUrl ? null : (remoteUrl ?? this.remoteUrl),
+    );
+  }
 }
 
 @immutable
 class ProfileDraft {
   const ProfileDraft({
     this.step = 0,
+    this.ownerAgeBand,
+    this.ownerGender,
+    this.dogExperience,
     this.petName = '',
-    this.species,
+    this.species = PetSpecies.dog,
     this.breed = '',
     this.ageInputMode = AgeInputMode.age,
     this.ageYears,
@@ -44,7 +109,8 @@ class ProfileDraft {
     this.bio = '',
   });
 
-  static const int lastStep = 3;
+  static const int stepCount = 5;
+  static const int lastStep = 4;
   static const int maxPhotos = 3;
   static const int minTags = AppConstants.minTags;
   static const int maxTags = AppConstants.maxTags;
@@ -52,8 +118,11 @@ class ProfileDraft {
   static const int maxTimeSlots = AppConstants.maxTimeSlots;
 
   final int step;
+  final OwnerAgeBand? ownerAgeBand;
+  final OwnerGender? ownerGender;
+  final DogExperience? dogExperience;
   final String petName;
-  final PetSpecies? species;
+  final PetSpecies species;
   final String breed;
   final AgeInputMode ageInputMode;
   final int? ageYears;
@@ -79,11 +148,13 @@ class ProfileDraft {
     return years < 0 ? 0 : years;
   }
 
-  int get primaryPhotoSeed {
-    if (photos.isEmpty) return 0;
+  MockPhoto? get primaryPhoto {
+    if (photos.isEmpty) return null;
     final primary = photos.where((p) => p.id == primaryPhotoId);
-    return (primary.isEmpty ? photos.first : primary.first).seed;
+    return primary.isEmpty ? photos.first : primary.first;
   }
+
+  int get primaryPhotoSeed => primaryPhoto?.seed ?? 0;
 
   bool get hasAgeOrBirth {
     if (ageInputMode == AgeInputMode.age) {
@@ -92,9 +163,11 @@ class ProfileDraft {
     return birthYear != null && birthMonth != null;
   }
 
+  bool get p00Valid =>
+      ownerAgeBand != null && ownerGender != null && dogExperience != null;
+
   bool get p01Valid =>
       petName.trim().isNotEmpty &&
-      species != null &&
       breed.trim().isNotEmpty &&
       hasAgeOrBirth &&
       gender != null &&
@@ -113,15 +186,19 @@ class ProfileDraft {
   bool get p04Valid => bio.length <= AppCopy.bioMax;
 
   bool get currentStepValid => switch (step) {
-        0 => p01Valid,
-        1 => p02Valid,
-        2 => p03Valid,
-        3 => p04Valid,
+        0 => p00Valid,
+        1 => p01Valid,
+        2 => p02Valid,
+        3 => p03Valid,
+        4 => p04Valid,
         _ => false,
       };
 
   ProfileDraft copyWith({
     int? step,
+    OwnerAgeBand? ownerAgeBand,
+    OwnerGender? ownerGender,
+    DogExperience? dogExperience,
     String? petName,
     PetSpecies? species,
     String? breed,
@@ -143,6 +220,9 @@ class ProfileDraft {
   }) {
     return ProfileDraft(
       step: step ?? this.step,
+      ownerAgeBand: ownerAgeBand ?? this.ownerAgeBand,
+      ownerGender: ownerGender ?? this.ownerGender,
+      dogExperience: dogExperience ?? this.dogExperience,
       petName: petName ?? this.petName,
       species: species ?? this.species,
       breed: breed ?? this.breed,
@@ -167,8 +247,14 @@ class ProfileDraftNotifier extends Notifier<ProfileDraft> {
 
   @override
   ProfileDraft build() {
-    ref.watch(sessionLoggedInTickProvider);
-    _photoSeq = 0;
+    // Clear only on logout. Watching the tick would rebuild (and wipe) after
+    // splash hydrates a returning session when isLoggedIn flips to true.
+    ref.listen<int>(sessionLoggedInTickProvider, (previous, next) {
+      if (next == 0) {
+        _photoSeq = 0;
+        state = const ProfileDraft();
+      }
+    });
     return const ProfileDraft();
   }
 
@@ -200,9 +286,16 @@ class ProfileDraftNotifier extends Notifier<ProfileDraft> {
     return true;
   }
 
-  void setPetName(String value) => state = state.copyWith(petName: value);
+  void setOwnerAgeBand(OwnerAgeBand value) =>
+      state = state.copyWith(ownerAgeBand: value);
 
-  void setSpecies(PetSpecies value) => state = state.copyWith(species: value);
+  void setOwnerGender(OwnerGender value) =>
+      state = state.copyWith(ownerGender: value);
+
+  void setDogExperience(DogExperience value) =>
+      state = state.copyWith(dogExperience: value);
+
+  void setPetName(String value) => state = state.copyWith(petName: value);
 
   void setBreed(String value) => state = state.copyWith(breed: value);
 
@@ -230,6 +323,26 @@ class ProfileDraftNotifier extends Notifier<ProfileDraft> {
 
   void setSize(PetSize value) => state = state.copyWith(size: value);
 
+  /// Opens the gallery via [picker] and appends the chosen photo.
+  Future<void> addPhotoFromGallery(GalleryPhotoPicker picker) async {
+    if (state.photos.length >= ProfileDraft.maxPhotos) return;
+    final picked = await picker.pickFromGallery();
+    if (picked == null) return;
+    final seq = _photoSeq++;
+    final photo = MockPhoto(
+      id: 'photo_$seq',
+      seed: seq,
+      localPath: picked.path.isEmpty ? null : picked.path,
+      bytes: picked.bytes.isEmpty ? null : picked.bytes,
+    );
+    final photos = [...state.photos, photo];
+    state = state.copyWith(
+      photos: photos,
+      primaryPhotoId: state.primaryPhotoId ?? photo.id,
+    );
+  }
+
+  /// Test / seed helper when gallery is unavailable.
   void addMockPhoto() {
     if (state.photos.length >= ProfileDraft.maxPhotos) return;
     final seq = _photoSeq++;
@@ -256,20 +369,6 @@ class ProfileDraftNotifier extends Notifier<ProfileDraft> {
 
   void setPrimaryPhoto(String id) {
     state = state.copyWith(primaryPhotoId: id);
-  }
-
-  void movePhoto(int from, int to) {
-    if (from == to) return;
-    if (from < 0 ||
-        to < 0 ||
-        from >= state.photos.length ||
-        to >= state.photos.length) {
-      return;
-    }
-    final photos = [...state.photos];
-    final item = photos.removeAt(from);
-    photos.insert(to, item);
-    state = state.copyWith(photos: photos);
   }
 
   void toggleTag(String tagKey) {

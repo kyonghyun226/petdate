@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:petdate/copy/app_copy.dart';
 import 'package:petdate/firebase/identity_contract.dart';
@@ -8,10 +9,11 @@ import 'package:petdate/theme/tokens.dart';
 import 'package:petdate/widgets/buttons.dart';
 import 'package:petdate/widgets/trust_badge.dart';
 
-/// A02 identity verification.
-/// After Auth: ensure user doc → `markUserVerified` → listen `users/{uid}`.
-/// Without Auth (tests / mock login): same UI, local mock unlock.
-/// Client never writes `users/{uid}.verifiedAt`.
+/// A02 pet-registration verification (manual review).
+///
+/// User submits owner name + registration number → `petRegStatus: pending`.
+/// Operator confirms offline; Admin sets `users/{uid}.verifiedAt`.
+/// Client never writes `verifiedAt`.
 class A02VerifyScreen extends ConsumerStatefulWidget {
   const A02VerifyScreen({super.key});
 
@@ -20,26 +22,60 @@ class A02VerifyScreen extends ConsumerStatefulWidget {
 }
 
 class _A02VerifyScreenState extends ConsumerState<A02VerifyScreen> {
-  bool _busy = false;
+  final _ownerController = TextEditingController();
+  final _regController = TextEditingController();
 
-  Future<void> _confirm() async {
+  bool _busy = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _ownerController.dispose();
+    _regController.dispose();
+    super.dispose();
+  }
+
+  String? _validate() {
+    final owner = _ownerController.text.trim();
+    final reg = _regController.text.replaceAll(RegExp(r'\s'), '');
+    if (owner.isEmpty || owner.length > 40) {
+      return AppCopy.verifyInvalidOwner;
+    }
+    if (!RegExp(r'^\d{8,20}$').hasMatch(reg)) {
+      return AppCopy.verifyInvalidReg;
+    }
+    return null;
+  }
+
+  Future<void> _submit() async {
     if (_busy) return;
-    setState(() => _busy = true);
-    final session = ref.read(sessionProvider);
-    await IdentityVerification.ensureUserDocExists(
-      uid: session.uid,
-      goal: session.goal,
-    );
-    if (!mounted) return;
-    // Server writes verifiedAt. Client listens — does not set the field.
-    final result =
-        await IdentityVerification.requestMarkVerified(uid: session.uid);
-    if (!mounted) return;
-    if (result != null) {
-      await ref.read(userDocProvider.notifier).pullRemoteUserDoc(
-            afterCallableSuccess: true,
-            verifiedAtIso: result.verifiedAtIso,
+    final validationError = _validate();
+    if (validationError != null) {
+      setState(() => _error = validationError);
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    final owner = _ownerController.text.trim();
+    final reg = _regController.text.replaceAll(RegExp(r'\s'), '');
+    try {
+      final session = ref.read(sessionProvider);
+      await IdentityVerification.ensureUserDocExists(uid: session.uid);
+      if (!mounted) return;
+      await ref.read(userDocProvider.notifier).submitPetRegistration(
+            ownerName: owner,
+            registrationNumber: reg,
           );
+    } on Object {
+      if (mounted) {
+        setState(() {
+          _error = AppCopy.verifySubmitFailed;
+          _busy = false;
+        });
+      }
+      return;
     }
     if (mounted) setState(() => _busy = false);
   }
@@ -56,14 +92,23 @@ class _A02VerifyScreenState extends ConsumerState<A02VerifyScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final verified = ref.watch(isVerifiedProvider);
+    final userDoc = ref.watch(userDocProvider);
+    final verified = userDoc.isVerified;
+    final pending = userDoc.isPetRegPending;
+
+    final title = verified
+        ? AppCopy.verifyDone
+        : pending
+            ? AppCopy.verifyPendingTitle
+            : AppCopy.verifyTitle;
+
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
           onPressed: () => Navigator.of(context).pop(verified),
         ),
-        title: Text(verified ? AppCopy.verifyDone : AppCopy.verifyTitle),
+        title: Text(title),
       ),
       body: SafeArea(
         child: Padding(
@@ -75,21 +120,39 @@ class _A02VerifyScreenState extends ConsumerState<A02VerifyScreen> {
           ),
           child: verified
               ? _SuccessBody(onGo: _goSpark)
-              : _PromptBody(
-                  busy: _busy,
-                  onConfirm: _confirm,
-                ),
+              : pending
+                  ? _PendingBody(
+                      ownerName: userDoc.petRegOwnerName,
+                      registrationNumber: userDoc.petRegNumber,
+                      onDone: () => Navigator.of(context).pop(false),
+                    )
+                  : _FormBody(
+                      ownerController: _ownerController,
+                      regController: _regController,
+                      busy: _busy,
+                      error: _error,
+                      onSubmit: _submit,
+                    ),
         ),
       ),
     );
   }
 }
 
-class _PromptBody extends StatelessWidget {
-  const _PromptBody({required this.busy, required this.onConfirm});
+class _FormBody extends StatelessWidget {
+  const _FormBody({
+    required this.ownerController,
+    required this.regController,
+    required this.busy,
+    required this.error,
+    required this.onSubmit,
+  });
 
+  final TextEditingController ownerController;
+  final TextEditingController regController;
   final bool busy;
-  final VoidCallback onConfirm;
+  final String? error;
+  final VoidCallback onSubmit;
 
   @override
   Widget build(BuildContext context) {
@@ -106,7 +169,7 @@ class _PromptBody extends StatelessWidget {
             borderRadius: BorderRadius.circular(AppRadius.card),
           ),
           child: const Icon(
-            Icons.verified_user_outlined,
+            Icons.pets_rounded,
             color: AppColors.primary,
             size: 36,
           ),
@@ -115,11 +178,104 @@ class _PromptBody extends StatelessWidget {
         Text(AppCopy.verifyTitle, style: AppTypography.display),
         const SizedBox(height: AppSpacing.md),
         Text(AppCopy.verifyBody, style: AppTypography.body),
+        const SizedBox(height: AppSpacing.xl),
+        TextField(
+          key: const ValueKey('a02-owner'),
+          controller: ownerController,
+          textInputAction: TextInputAction.next,
+          enabled: !busy,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(
+            labelText: AppCopy.verifyOwnerHint,
+            hintText: AppCopy.verifyOwnerPlaceholder,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        TextField(
+          key: const ValueKey('a02-reg'),
+          controller: regController,
+          keyboardType: TextInputType.number,
+          textInputAction: TextInputAction.done,
+          enabled: !busy,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          decoration: const InputDecoration(
+            labelText: AppCopy.verifyRegHint,
+            hintText: AppCopy.verifyRegPlaceholder,
+          ),
+          onSubmitted: (_) => onSubmit(),
+        ),
+        if (error != null) ...[
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            error!,
+            style: AppTypography.caption.copyWith(color: AppColors.danger),
+          ),
+        ],
         const Spacer(),
         PrimaryButton(
-          key: const ValueKey('a02-confirm'),
+          key: const ValueKey('a02-submit'),
           label: AppCopy.verifyCta,
-          onPressed: busy ? null : onConfirm,
+          onPressed: busy ? null : onSubmit,
+        ),
+      ],
+    );
+  }
+}
+
+class _PendingBody extends StatelessWidget {
+  const _PendingBody({
+    required this.ownerName,
+    required this.registrationNumber,
+    required this.onDone,
+  });
+
+  final String? ownerName;
+  final String? registrationNumber;
+  final VoidCallback onDone;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: AppSpacing.lg),
+        Container(
+          width: 88,
+          height: 88,
+          alignment: Alignment.center,
+          decoration: const BoxDecoration(
+            color: AppColors.primarySoft,
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.hourglass_top_rounded,
+            color: AppColors.primary,
+            size: 44,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xl),
+        Text(AppCopy.verifyPendingTitle, style: AppTypography.display),
+        const SizedBox(height: AppSpacing.md),
+        Text(AppCopy.verifyPendingBody, style: AppTypography.body),
+        if (ownerName != null && ownerName!.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.lg),
+          Text(
+            '${AppCopy.verifyOwnerHint}: $ownerName',
+            style: AppTypography.caption,
+          ),
+        ],
+        if (registrationNumber != null && registrationNumber!.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            '${AppCopy.verifyRegHint}: $registrationNumber',
+            style: AppTypography.caption,
+          ),
+        ],
+        const Spacer(),
+        PrimaryButton(
+          key: const ValueKey('a02-pending-done'),
+          label: AppCopy.later,
+          onPressed: onDone,
         ),
       ],
     );
@@ -141,7 +297,7 @@ class _SuccessBody extends StatelessWidget {
           width: 88,
           height: 88,
           alignment: Alignment.center,
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             color: AppColors.safetyBg,
             shape: BoxShape.circle,
           ),

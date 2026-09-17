@@ -1,9 +1,10 @@
 # 반짝산책 (petdate)
 
-반려 친구 · 산책 메이트 찾기. Flutter 앱, Firebase 프로젝트 `petdatinglove`.
+반려견 친구 · 산책 메이트 찾기. Flutter 앱, Firebase 프로젝트 `petdatinglove`.
 
-Adult ID verification (`users/{uid}.verifiedAt`) is written only by the
-`markUserVerified` Cloud Function. See [`functions/README.md`](functions/README.md).
+Pet registration verification: the client writes `petReg*` fields for manual
+review; `users/{uid}.verifiedAt` is written only by Admin / `markUserVerified`.
+See [`functions/README.md`](functions/README.md).
 
 ## Firebase Auth (Google + Apple)
 
@@ -58,12 +59,12 @@ Adult ID verification (`users/{uid}.verifiedAt`) is written only by the
 3. Firebase Authentication → Apple 제공자:
    - iOS: 서비스 ID 없이 네이티브 시트 (`FirebaseAuth.signInWithProvider`)
    - Android: Services ID + 리턴 URL `https://petdatinglove.firebaseapp.com/__/auth/handler` (Apple Services ID의 Return URL과 Firebase Apple 제공자 설정에 동일하게)
-4. 성인 본인인증은 `markUserVerified`로 이어지며, Auth 로그인 자체에는 포함되지 않습니다.
+4. 반려견등록 인증은 소유주 이름·동물등록번호를 제출하면 수동 심사 후 Admin이 `verifiedAt`을 부여합니다. Auth 로그인 자체에는 포함되지 않습니다.
 
 ### 동작
 
 - A01 Google / Apple → Firebase 사용자 생성·재사용 → `SessionNotifier` 계약 유지: `uid`, `isLoggedIn`, `phase`
-- Firebase Auth가 모바일에서 세션을 유지합니다. 재실행 시 스플래시가 `users/{uid}` · `pets/{uid}`를 읽어 목적/프로필 게이트를 건너뛸 수 있습니다.
+- Firebase Auth가 모바일에서 세션을 유지합니다. 재실행 시 스플래시가 `users/{uid}` · `pets/{uid}`를 읽어 프로필 게이트를 건너뛸 수 있습니다.
 - 로그아웃: 마이 화면 (`SessionNotifier.signOut()`).
 
 Auth가 없으면 (위젯 테스트, 미설정 호스트) 탐색·좋아요·채팅은 **in-memory mock**으로 동작합니다. Auth가 있으면 Firestore 실경로입니다.
@@ -74,9 +75,9 @@ Auth가 없으면 (위젯 테스트, 미설정 호스트) 탐색·좋아요·채
 
 | 단계 | 실연결 |
 | --- | --- |
-| O01 목적 확정 | `users/{uid}` ensure (`goal`, `searchRadiusKm`, `createdAt`). **`verifiedAt` 클라 write 없음** |
+| 로그인 / 유저 문서 | `users/{uid}` ensure (`goal: friend`, `searchRadiusKm`, `createdAt`). **`verifiedAt` 클라 write 없음** |
 | 프로필 완료 | `pets/{uid}` upsert. `petId == ownerId == uid` |
-| A02 인증 | ensure user doc → callable `markUserVerified` (`asia-northeast3`) → `users/{uid}` listen으로 `verifiedAt` 해금 |
+| A02 인증 | 소유주명·동물등록번호 제출 → `petRegStatus: pending` → 수동 확인 후 Admin이 `verifiedAt` 부여 → listen으로 해금 |
 | 좋아요 | `likes/{fromUid}_{toPetId}`. `verifiedAt` 없으면 규칙 deny |
 | 매칭 | 상호 좋아요 시 `matches/{minUid}_{maxUid}` + `threads/{matchId}` 배치 생성. `petIds` = 정렬된 uid |
 | 채팅 | `threads/{matchId}/messages`, `meetProposals` |
@@ -117,6 +118,7 @@ users/{uid}/fcmTokens/{tokenHash}
 
 - [ ] Sign-in method → **Google** on (지원 이메일)
 - [ ] Sign-in method → **Apple** on
+- [ ] 반려견등록 인증 제출 후 Admin이 `users/{uid}.verifiedAt`을 넣으면 좋아요가 해금되는지
 - [ ] Android: debug/release/Play SHA-1을 `kr.mooca.petdate`에 등록 후 `google-services.json` 재다운로드 (`oauth_client` web `client_type: 3` 포함)
 - [ ] iOS: Google 켠 뒤 `GoogleService-Info.plist` 재다운로드 → `CLIENT_ID` / `REVERSED_CLIENT_ID` → `Info.plist`의 `GIDClientID` + URL scheme
 - [ ] Apple Developer App ID `kr.mooca.petdate` Sign In with Apple
@@ -125,7 +127,7 @@ users/{uid}/fcmTokens/{tokenHash}
 ### Firestore / Functions / Storage
 
 - [ ] Firestore rules·indexes가 `petdatinglove`에 deploy되어 있는지 확인 (`firestore.rules`, `firestore.indexes.json`)
-- [ ] `markUserVerified` callable이 `asia-northeast3`에 live (이미 deploy됨으로 안내됨 — 콘솔에서 한 번 더 확인)
+- [ ] Admin이 수동 심사 후 `users/{uid}.verifiedAt`을 넣거나 `markUserVerified` callable을 쓰는지
 - [ ] `firebase deploy --only firestore:rules,functions` 후 message / match / meetProposal Functions가 `asia-northeast3`에 live
 - [ ] Cloud Messaging 사용 + iOS APNs 키/인증서 업로드. Android `google-services.json`은 저장소에 있음
 - [ ] 클라: 알림 권한 요청 후 owner-only `fcmTokens` upsert (`tokenHash` = sha256 hex, raw token을 doc id로 쓰지 않음)

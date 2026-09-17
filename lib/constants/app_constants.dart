@@ -1,6 +1,6 @@
 /// Confirmed product constants (UIUX v0.5 / v0.6).
 abstract final class AppConstants {
-  static const double searchRadiusKm = 5;
+  static const double searchRadiusKm = 40;
 
   static const int minTags = 3;
   static const int maxTags = 8;

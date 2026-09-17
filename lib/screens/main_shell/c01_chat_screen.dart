@@ -8,6 +8,7 @@ import 'package:petdate/state/session_provider.dart';
 import 'package:petdate/state/spark_provider.dart';
 import 'package:petdate/theme/tokens.dart';
 import 'package:petdate/widgets/common.dart';
+import 'package:petdate/widgets/main_tab_app_bar.dart';
 import 'package:petdate/widgets/pet_photo.dart';
 
 class C01ChatScreen extends ConsumerWidget {
@@ -21,10 +22,7 @@ class C01ChatScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: AppColors.bg,
-      appBar: AppBar(
-        title: const Text(AppCopy.navChat),
-        automaticallyImplyLeading: false,
-      ),
+      appBar: const MainTabAppBar(title: AppCopy.navChat),
       body: threads.isEmpty
           ? EmptyState(
               message: AppCopy.chatEmpty,
@@ -74,7 +72,8 @@ class _ChatRow extends StatelessWidget {
                 width: AppSizes.chatThumb,
                 height: AppSizes.chatThumb,
                 child: PetPhoto(
-                  seed: thread.profile.photoSeeds.first,
+                  seed: thread.profile.mainPhotoSeed,
+                  assetPath: thread.profile.mainPhotoAsset,
                   circle: true,
                   iconSize: 22,
                 ),

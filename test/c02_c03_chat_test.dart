@@ -8,20 +8,19 @@ import 'package:petdate/models/discovery_profile.dart';
 import 'package:petdate/screens/c02_chat_room/c02_chat_room_screen.dart';
 import 'package:petdate/screens/c03_meetup/c03_meetup_sheet.dart';
 import 'package:petdate/state/analytics_provider.dart';
-import 'package:petdate/state/chat_provider.dart';
 import 'package:petdate/state/user_doc_provider.dart';
 import 'package:petdate/theme/tokens.dart';
 
 import 'helpers/fake_auth_repository.dart';
 import 'helpers/test_app.dart';
 
-ProviderContainer _loggedIn({UserGoal goal = UserGoal.friend}) {
+ProviderContainer _loggedIn() {
   final container = testContainer(
     auth: FakeAuthRepository(
       signedInUser: const AuthUser(uid: 'mock_uid', providerId: 'google.com'),
     ),
   );
-  seedCompletedSession(container, goal: goal);
+  seedCompletedSession(container);
   container.read(userDocProvider.notifier).ingestListenSnapshot(
         verifiedAt: DateTime.utc(2026, 9, 8),
       );
@@ -54,10 +53,7 @@ void main() {
     expect(AppRadius.sheetTop, 24);
     expect(AppSizes.templateChipHeight, 36);
     expect(AppCopy.safetyBanner, '만남은 공공장소에서, 반려와 함께 안전하게');
-    expect(AppCopy.meetupFriendTitle, '어디서 만날까요?');
-    expect(AppCopy.meetupWalkTitle, '어디서 같이 걸을까요?');
-    expect(GoalCopy.meetupTitle(UserGoal.friend), AppCopy.meetupFriendTitle);
-    expect(GoalCopy.meetupTitle(UserGoal.walk), AppCopy.meetupWalkTitle);
+    expect(AppCopy.meetupTitle, '어디서 만날까요?');
     expect(AppCopy.meetupTimeChips, [
       '오늘 저녁',
       '이번 주말',
@@ -66,116 +62,10 @@ void main() {
     expect(MeetupPlaceCopy.label(MeetupPlace.park), '공원');
     expect(MeetupPlaceCopy.label(MeetupPlace.petCafe), '펫카페');
     expect(MeetupPlaceCopy.label(MeetupPlace.other), '기타');
-    expect(MeetKpi.firstMessageTemplateUsed, 'first_message_template_used');
     expect(MeetKpi.proposalSent, 'meet_proposal_sent');
     expect(MeetKpi.proposalAccepted, 'meet_proposal_accepted');
     expect(MeetKpi.proposalCounter, 'meet_proposal_counter');
     expect(formatPetDistance(0.8), '800m');
-    expect(
-      GoalCopy.firstMessageChips(UserGoal.friend, '초코').first,
-      '우리 초코는 새 친구 기다리면 꼬리부터 반짝해요',
-    );
-    expect(GoalCopy.firstMessageChips(UserGoal.walk, '초코'), [
-      '주말 아침 산책 가능해요',
-      '퇴근 후 짧게 걸을래요',
-      '이번 주말 시간 맞춰볼까요?',
-    ]);
-  });
-
-  testWidgets('first-message chips insert only and track KPI', (tester) async {
-    final container = _loggedIn();
-    addTearDown(container.dispose);
-    await _pumpMain(tester, container);
-    await _openMatchedChat(tester);
-
-    final chip = GoalCopy.firstMessageChips(
-      UserGoal.friend,
-      AppCopy.fallbackPetName,
-    ).first;
-    expect(find.text(chip), findsOneWidget);
-    expect(find.text('콩이 · 800m'), findsOneWidget);
-    expect(find.text(AppCopy.safetyBanner), findsOneWidget);
-
-    final before = container.read(chatProvider).threads.single;
-    expect(before.outboundCount, 0);
-
-    await tester.tap(find.byKey(const ValueKey('first-message-chip-0')));
-    await tester.pump();
-
-    expect(
-      tester
-          .widget<TextField>(find.byKey(const ValueKey('c02-input')))
-          .controller
-          ?.text,
-      chip,
-    );
-    expect(find.byKey(const ValueKey('first-message-chips')), findsOneWidget);
-    expect(
-      container.read(chatProvider).threads.single.outboundCount,
-      0,
-    );
-    expect(
-      container.read(chatProvider).threads.single.messages.where(
-            (m) => m.isMine && m.kind == ChatMessageKind.text,
-          ),
-      isEmpty,
-    );
-    expect(
-      container.read(analyticsProvider).events,
-      contains(MeetKpi.firstMessageTemplateUsed),
-    );
-    expect(
-      tester
-          .widget<IconButton>(find.byKey(const ValueKey('c02-send')))
-          .onPressed,
-      isNotNull,
-    );
-  });
-
-  testWidgets('walk chips insert only and C03 uses walk title', (tester) async {
-    final container = _loggedIn(goal: UserGoal.walk);
-    addTearDown(container.dispose);
-    await _pumpMain(tester, container);
-    await _openMatchedChat(tester);
-
-    final chips = GoalCopy.firstMessageChips(
-      UserGoal.walk,
-      AppCopy.fallbackPetName,
-    );
-    expect(find.byKey(const ValueKey('first-message-chip-0')), findsOneWidget);
-    expect(find.byKey(const ValueKey('first-message-chip-1')), findsOneWidget);
-    expect(find.byKey(const ValueKey('first-message-chip-2')), findsOneWidget);
-
-    await tester.tap(find.byKey(const ValueKey('first-message-chip-1')));
-    await tester.pump();
-    expect(
-      tester
-          .widget<TextField>(find.byKey(const ValueKey('c02-input')))
-          .controller
-          ?.text,
-      chips[1],
-    );
-    expect(
-      container.read(chatProvider).threads.single.outboundCount,
-      0,
-    );
-    expect(
-      container.read(analyticsProvider).events,
-      contains(MeetKpi.firstMessageTemplateUsed),
-    );
-
-    await tester.tap(find.byKey(const ValueKey('meetup-propose-chip')));
-    await tester.pumpAndSettle();
-    expect(find.text(AppCopy.meetupWalkTitle), findsOneWidget);
-    expect(find.byKey(ValueKey('meetup-time-${AppCopy.meetupTonight}')), findsOneWidget);
-    expect(
-      find.byKey(ValueKey('meetup-time-${AppCopy.meetupThisWeekend}')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(ValueKey('meetup-time-${AppCopy.meetupPickDateTime}')),
-      findsOneWidget,
-    );
   });
 
   testWidgets('C03 send and inbound CTAs track meet KPIs', (tester) async {
@@ -192,7 +82,7 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('meetup-propose-chip')));
     await tester.pumpAndSettle();
-    expect(find.text(AppCopy.meetupFriendTitle), findsOneWidget);
+    expect(find.text(AppCopy.meetupTitle), findsOneWidget);
     expect(find.text(MeetupPlaceCopy.label(MeetupPlace.park)), findsWidgets);
     expect(find.text(MeetupPlaceCopy.label(MeetupPlace.petCafe)), findsOneWidget);
     expect(find.text(MeetupPlaceCopy.label(MeetupPlace.other)), findsOneWidget);
@@ -223,7 +113,7 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('meetup-counter')));
     await tester.pumpAndSettle();
-    expect(find.text(AppCopy.meetupFriendTitle), findsOneWidget);
+    expect(find.text(AppCopy.meetupTitle), findsOneWidget);
     expect(
       container.read(analyticsProvider).events,
       contains(MeetKpi.proposalCounter),
@@ -300,7 +190,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text(AppCopy.meetupFriendTitle), findsOneWidget);
+    expect(find.text(AppCopy.meetupTitle), findsOneWidget);
     expect(find.text(AppCopy.meetupMemo), findsOneWidget);
 
     final memo = tester.widget<TextField>(

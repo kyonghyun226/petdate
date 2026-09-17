@@ -17,9 +17,9 @@
 	<key>CFBundleName</key>
 	<string>반짝산책</string>
 	<key>StoreSubtitle</key>
-	<string>반려 친구 · 산책 메이트 찾기</string>
+	<string>반려견 친구 · 산책 메이트 찾기</string>
 	<key>StoreTagline</key>
-	<string>우리 반려의 짝을 찾아요. 친구 사귀기부터 같이 산책하기까지.</string>
+	<string>우리 반려견의 짝을 찾아요. 친구 사귀기부터 같이 산책하기까지.</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -28,6 +28,8 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>
@@ -74,6 +76,25 @@
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>반려견 프로필 사진을 등록하기 위해 사진 라이브러리에 접근해요.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>반려견 프로필 사진을 저장하기 위해 사진 라이브러리에 접근해요.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>근처 산책 친구를 찾기 위해 위치를 사용해요. 정확한 주소는 저장하지 않아요.</string>
+	<key>GIDClientID</key>
+	<string>503588097549-q4pse24bn7vo50fvc7uuis4eb447p4qh.apps.googleusercontent.com</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.503588097549-q4pse24bn7vo50fvc7uuis4eb447p4qh</string>
+			</array>
+		</dict>
 	</array>
 </dict>
 </plist>

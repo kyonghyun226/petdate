@@ -5,7 +5,6 @@ import 'package:petdate/copy/app_copy.dart';
 import 'package:petdate/models/chat.dart';
 import 'package:petdate/state/analytics_provider.dart';
 import 'package:petdate/state/chat_provider.dart';
-import 'package:petdate/state/session_provider.dart';
 import 'package:petdate/theme/tokens.dart';
 import 'package:petdate/widgets/buttons.dart';
 import 'package:petdate/widgets/common.dart';
@@ -103,9 +102,6 @@ class _C03MeetupSheetState extends ConsumerState<C03MeetupSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final goal =
-        ref.watch(sessionProvider.select((s) => s.goal)) ?? UserGoal.friend;
-
     return SingleChildScrollView(
       key: const ValueKey('c03-meetup-sheet'),
       padding: const EdgeInsets.fromLTRB(
@@ -117,7 +113,7 @@ class _C03MeetupSheetState extends ConsumerState<C03MeetupSheet> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(GoalCopy.meetupTitle(goal), style: AppTypography.title),
+          Text(AppCopy.meetupTitle, style: AppTypography.title),
           const SizedBox(height: AppSpacing.xl),
           Text(AppCopy.meetupPlace, style: AppTypography.button),
           const SizedBox(height: AppSpacing.sm),

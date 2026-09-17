@@ -8,6 +8,7 @@ import 'package:petdate/state/spark_provider.dart';
 import 'package:petdate/theme/tokens.dart';
 import 'package:petdate/widgets/chips.dart';
 import 'package:petdate/widgets/common.dart';
+import 'package:petdate/widgets/main_tab_app_bar.dart';
 import 'package:petdate/widgets/pet_photo.dart';
 
 class B01SparkScreen extends ConsumerStatefulWidget {
@@ -33,10 +34,7 @@ class _B01SparkScreenState extends ConsumerState<B01SparkScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(AppCopy.navSpark),
-        automaticallyImplyLeading: false,
-      ),
+      appBar: const MainTabAppBar(title: AppCopy.navSpark),
       body: Column(
         children: [
           Padding(
@@ -90,10 +88,20 @@ class _B01SparkScreenState extends ConsumerState<B01SparkScreen> {
 
   Future<void> _openRow(SparkItem item) async {
     if (item.bucket == SparkBucket.matched) {
-      await openChatRoom(context, ref, item.profile);
+      await openProfileDetail(
+        context,
+        item.profile,
+        allowMatch: false,
+        matchedChat: true,
+      );
       return;
     }
-    await openProfileDetail(context, item.profile);
+    await openProfileDetail(
+      context,
+      item.profile,
+      allowMatch: item.bucket != SparkBucket.sent,
+      replyToReceived: item.bucket == SparkBucket.received,
+    );
   }
 
   Future<void> _reply(SparkItem item) async {
@@ -132,7 +140,8 @@ class _SparkRow extends StatelessWidget {
                 width: AppSizes.sparkThumb,
                 height: AppSizes.sparkThumb,
                 child: PetPhoto(
-                  seed: item.profile.photoSeeds.first,
+                  seed: item.profile.mainPhotoSeed,
+                  assetPath: item.profile.mainPhotoAsset,
                   circle: true,
                   iconSize: 22,
                 ),

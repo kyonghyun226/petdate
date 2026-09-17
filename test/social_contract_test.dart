@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:petdate/data/backend_mode.dart';
+import 'package:petdate/data/demo_mode.dart';
 import 'package:petdate/data/mock_profiles.dart';
 import 'package:petdate/data/mock_social_repository.dart';
 import 'package:petdate/firebase/firestore_ids.dart';
@@ -10,8 +11,30 @@ import 'package:petdate/firebase/pet_codec.dart';
 import 'package:petdate/models/chat.dart';
 import 'package:petdate/models/preferred_time.dart';
 import 'package:petdate/state/profile_provider.dart';
+import 'package:petdate/state/session_provider.dart';
 
 void main() {
+  setUp(() => DemoMode.disableForTests());
+
+  test('guest preview uid activates demo catalog without Auth', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    expect(container.read(demoCatalogActiveProvider), isFalse);
+    container.read(profileDraftProvider.notifier).hydrate(
+          MockCatalog.guestOwnerDraft,
+        );
+    container.read(sessionProvider.notifier).enterGuestPreview();
+
+    final session = container.read(sessionProvider);
+    expect(session.uid, DemoMode.uid);
+    expect(session.phase, AppPhase.main);
+    expect(session.isLoggedIn, isTrue);
+    expect(container.read(demoCatalogActiveProvider), isTrue);
+    expect(container.read(useMockDataProvider), isTrue);
+    expect(IdentityRemote.isLiveAuthReady, isFalse);
+  });
+
   test('like and match ids follow the official schema', () {
     const a = 'aaaaaaaaaaaaaaaa';
     const b = 'bbbbbbbbbbbbbbbb';
@@ -57,6 +80,30 @@ void main() {
     expect(container.read(useMockDataProvider), isTrue);
   });
 
+  test('review demo allowlist matches admin email and uid', () {
+    expect(
+      DemoMode.isReviewDemoAccount(
+        uid: '1FjLnLtQVNQzjhjkEUf3gkvXV063',
+        email: null,
+      ),
+      isTrue,
+    );
+    expect(
+      DemoMode.isReviewDemoAccount(
+        uid: 'other',
+        email: 'kyonghyun226@gmail.com',
+      ),
+      isTrue,
+    );
+    expect(
+      DemoMode.isReviewDemoAccount(
+        uid: 'other',
+        email: 'someone@example.com',
+      ),
+      isFalse,
+    );
+  });
+
   test('pet codec writes rule-shaped fields and never verifiedAt', () {
     const uid = 'abcdefghijklmnopqrstuvwx';
     const draft = ProfileDraft(
@@ -75,6 +122,9 @@ void main() {
       },
       preferredTimeSlots: {PreferredTimeSlot.weekendMorning},
       bio: '공원 좋아해요',
+      ownerAgeBand: OwnerAgeBand.thirties,
+      ownerGender: OwnerGender.female,
+      dogExperience: DogExperience.oneToThree,
     );
     final map = PetCodec.toFirestore(uid: uid, draft: draft);
     expect(map['ownerId'], uid);
@@ -83,9 +133,12 @@ void main() {
     expect(map['sex'], 'male');
     expect(map['size'], 'small');
     expect(map['age'], 3);
-    expect(map['photos'], ['pets/$uid/photo_4']);
+    expect(map['photos'], ['pets/$uid/photo_0.jpg']);
     expect(map['tags'], hasLength(3));
     expect(map['preferredTimeSlots'], ['weekendMorning']);
+    expect(map['ownerAgeBand'], 'thirties');
+    expect(map['ownerGender'], 'female');
+    expect(map['dogExperience'], 'oneToThree');
     expect(map.containsKey('verifiedAt'), isFalse);
     expect(map.containsKey(IdentityContract.verifiedAtField), isFalse);
 
@@ -98,7 +151,11 @@ void main() {
     expect(profile, isNotNull);
     expect(profile!.id, uid);
     expect(profile.name, '초코');
-    expect(profile.photoSeeds, [4]);
+    expect(profile.photoSeeds, [0]);
+    expect(profile.ownerAgeBand, OwnerAgeBand.thirties);
+    expect(profile.ownerGender, OwnerGender.female);
+    expect(profile.dogExperience, DogExperience.oneToThree);
+    expect(profile.ownerSummary, isNotNull);
   });
 
   test('mock like uses fromUid_toPetId and sorted match ids', () async {

@@ -6,18 +6,36 @@ import 'package:petdate/flow/app_nav.dart';
 import 'package:petdate/models/discovery_profile.dart';
 import 'package:petdate/models/pet_tag.dart';
 import 'package:petdate/screens/r01_report/r01_report_sheet.dart';
-import 'package:petdate/state/session_provider.dart';
+import 'package:petdate/state/chat_provider.dart';
+import 'package:petdate/state/nose_provider.dart';
+import 'package:petdate/state/profile_provider.dart';
 import 'package:petdate/state/user_doc_provider.dart';
 import 'package:petdate/theme/tokens.dart';
 import 'package:petdate/widgets/buttons.dart';
 import 'package:petdate/widgets/chips.dart';
+import 'package:petdate/widgets/dog_nose_icon.dart';
 import 'package:petdate/widgets/pet_photo.dart';
 import 'package:petdate/widgets/trust_badge.dart';
 
 class D01DetailScreen extends ConsumerStatefulWidget {
-  const D01DetailScreen({super.key, required this.profile});
+  const D01DetailScreen({
+    super.key,
+    required this.profile,
+    this.allowMatch = true,
+    this.replyToReceived = false,
+    this.matchedChat = false,
+  });
 
   final DiscoveryProfile profile;
+
+  /// When false (멍스타 browse), show intro only — no like / match CTA.
+  final bool allowMatch;
+
+  /// B01 received → profile: CTA asks to befriend *their* pet.
+  final bool replyToReceived;
+
+  /// B01 matched → profile: optional 「대화 시작하기」 when chat not started.
+  final bool matchedChat;
 
   @override
   ConsumerState<D01DetailScreen> createState() => _D01DetailScreenState();
@@ -30,9 +48,17 @@ class _D01DetailScreenState extends ConsumerState<D01DetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final goal =
-        ref.watch(sessionProvider.select((s) => s.goal)) ?? UserGoal.friend;
     final verified = ref.watch(isVerifiedProvider);
+    final myPetName = ref.watch(profileDraftProvider).displayName;
+    final nose = ref.watch(noseProvider);
+    final nosed = nose.nosed(profile.id);
+    final noseCount = nose.countFor(profile);
+    final thread = ref.watch(
+      chatProvider.select((s) => s.byProfile(profile.id)),
+    );
+    final showStartChat =
+        widget.matchedChat && !(thread?.conversationStarted ?? false);
+    final showMatchCta = widget.allowMatch;
     final photos =
         profile.photoSeeds.isEmpty ? const [0] : profile.photoSeeds;
 
@@ -65,6 +91,8 @@ class _D01DetailScreenState extends ConsumerState<D01DetailScreen> {
                               onPageChanged: (i) => setState(() => _page = i),
                               itemBuilder: (context, i) => PetPhoto(
                                 seed: photos[i],
+                                assetPath:
+                                    i == 0 ? profile.mainPhotoAsset : null,
                                 iconSize: 96,
                               ),
                             ),
@@ -96,6 +124,39 @@ class _D01DetailScreenState extends ConsumerState<D01DetailScreen> {
                                   ],
                                 ),
                               ),
+                            Positioned(
+                              right: AppSpacing.lg,
+                              bottom: AppSpacing.lg,
+                              child: Tooltip(
+                                message: AppCopy.noseGreetingTooltip,
+                                child: Material(
+                                  color: AppColors.surface.withValues(
+                                    alpha: 0.94,
+                                  ),
+                                  shape: const CircleBorder(),
+                                  elevation: 4,
+                                  shadowColor:
+                                      Colors.black.withValues(alpha: 0.18),
+                                  child: InkWell(
+                                    key: const ValueKey('d01-nose'),
+                                    customBorder: const CircleBorder(),
+                                    onTap: () => ref
+                                        .read(noseProvider.notifier)
+                                        .toggle(profile.id),
+                                    child: SizedBox(
+                                      width: 52,
+                                      height: 52,
+                                      child: Center(
+                                        child: DogNoseIcon(
+                                          size: 56,
+                                          filled: nosed,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -111,12 +172,24 @@ class _D01DetailScreenState extends ConsumerState<D01DetailScreen> {
                           children: [
                             Row(
                               children: [
-                                Expanded(
+                                Flexible(
                                   child: Text(
                                     profile.name,
                                     style: AppTypography.display,
                                   ),
                                 ),
+                                const SizedBox(width: AppSpacing.sm),
+                                Text(
+                                  AppCopy.noseGreetingCount(noseCount),
+                                  key: const ValueKey('d01-nose-count'),
+                                  style: AppTypography.caption.copyWith(
+                                    color: nosed
+                                        ? AppColors.primary
+                                        : AppColors.textMuted,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(width: AppSpacing.sm),
                                 const TrustBadge(),
                               ],
                             ),
@@ -127,6 +200,15 @@ class _D01DetailScreenState extends ConsumerState<D01DetailScreen> {
                                 color: AppColors.textMuted,
                               ),
                             ),
+                            if (profile.ownerSummary != null) ...[
+                              const SizedBox(height: AppSpacing.sm),
+                              Text(
+                                '${AppCopy.ownerSectionLabel} · ${profile.ownerSummary}',
+                                style: AppTypography.body.copyWith(
+                                  color: AppColors.textMuted,
+                                ),
+                              ),
+                            ],
                             const SizedBox(height: AppSpacing.xl),
                             Wrap(
                               spacing: AppSpacing.sm,
@@ -149,51 +231,59 @@ class _D01DetailScreenState extends ConsumerState<D01DetailScreen> {
               ],
             ),
           ),
-          Material(
-            color: AppColors.surface,
-            elevation: 8,
-            shadowColor: Colors.black.withValues(alpha: 0.08),
-            child: SafeArea(
-              top: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.xl,
-                  AppSpacing.sm,
-                  AppSpacing.xl,
-                  AppSpacing.lg,
-                ),
-                child: PrimaryButton(
-                  key: const ValueKey('d01-cta'),
-                  dimmed: !verified,
-                  icon: AppIcons.spark,
-                  // Same sticky slot: stream unlock swaps copy in place.
-                  label: verified
-                      ? GoalCopy.detailCta(goal, profile.name)
-                      : AppCopy.likeNeedsVerify,
-                  onPressed: () async {
-                    if (!verified) {
-                      await promptIdentityVerification(context);
-                      return;
-                    }
-                    await likeAndMaybeMatch(
-                      context,
-                      ref,
-                      profile,
-                      fromDetail: true,
-                    );
-                  },
+          if (showMatchCta || showStartChat)
+            Material(
+              color: AppColors.surface,
+              elevation: 8,
+              shadowColor: Colors.black.withValues(alpha: 0.08),
+              child: SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.xl,
+                    AppSpacing.sm,
+                    AppSpacing.xl,
+                    AppSpacing.lg,
+                  ),
+                  child: showStartChat
+                      ? PrimaryButton(
+                          key: const ValueKey('d01-start-chat'),
+                          icon: AppIcons.spark,
+                          label: AppCopy.startConversation,
+                          onPressed: () async {
+                            await openChatRoom(context, ref, profile);
+                          },
+                        )
+                      : PrimaryButton(
+                          key: const ValueKey('d01-cta'),
+                          dimmed: !verified,
+                          icon: AppIcons.spark,
+                          // Same sticky slot: stream unlock swaps copy in place.
+                          label: verified
+                              ? (widget.replyToReceived
+                                    ? AppCopy.sparkReplyCta(profile.name)
+                                    : AppCopy.detailCta(myPetName))
+                              : AppCopy.likeNeedsVerify,
+                          onPressed: () async {
+                            if (!verified) {
+                              await promptIdentityVerification(context);
+                              return;
+                            }
+                            await likeAndMaybeMatch(
+                              context,
+                              ref,
+                              profile,
+                              fromDetail: true,
+                            );
+                          },
+                        ),
                 ),
               ),
             ),
-          ),
         ],
       ),
     );
   }
 
-  String _distance(double km) {
-    if (km <= 0) return '근처';
-    if (km < 1) return '${(km * 1000).round()}m';
-    return '${km.toStringAsFixed(1)}km';
-  }
+  String _distance(double km) => formatPetDistance(km);
 }

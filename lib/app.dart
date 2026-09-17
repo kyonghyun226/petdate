@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:petdate/copy/app_copy.dart';
+import 'package:petdate/location/location_host.dart';
 import 'package:petdate/push/push_host.dart';
 import 'package:petdate/push/push_providers.dart';
 import 'package:petdate/routing/session_gate.dart';
@@ -16,7 +17,9 @@ class PetdateApp extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       navigatorKey: ref.watch(rootNavigatorKeyProvider),
-      home: const PushHost(child: SessionGate()),
+      home: const PushHost(
+        child: LocationHost(child: SessionGate()),
+      ),
     );
   }
 }

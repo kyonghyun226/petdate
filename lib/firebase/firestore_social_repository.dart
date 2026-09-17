@@ -6,6 +6,7 @@ import 'package:petdate/data/social_repository.dart';
 import 'package:petdate/firebase/firestore_ids.dart';
 import 'package:petdate/firebase/identity_contract.dart';
 import 'package:petdate/firebase/pet_codec.dart';
+import 'package:petdate/location/geo.dart';
 import 'package:petdate/models/chat.dart';
 import 'package:petdate/models/discovery_profile.dart';
 import 'package:petdate/models/spark.dart';
@@ -472,7 +473,19 @@ class FirestoreSocialRepository implements SocialRepository {
     required String uid,
     required ProfileDraft draft,
   }) async {
-    await _pets.doc(uid).set(PetCodec.toFirestore(uid: uid, draft: draft));
+    // Merge so existing geohash/latlng survive profile edits.
+    await _pets.doc(uid).set(
+          PetCodec.toFirestore(uid: uid, draft: draft),
+          SetOptions(merge: true),
+        );
+  }
+
+  @override
+  Future<void> updatePetLocation({
+    required String uid,
+    required ApproxLatLng point,
+  }) async {
+    await _pets.doc(uid).update(PetCodec.locationFields(point));
   }
 
   @override
